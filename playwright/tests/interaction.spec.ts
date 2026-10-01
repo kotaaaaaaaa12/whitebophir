@@ -542,8 +542,8 @@ test.describe("single-page interactions", () => {
     await expect
       .poll(() => readBoardTouchAction(page))
       .toMatchObject({
-        board: "pan-x pan-y",
-        svg: "pan-x pan-y",
+        board: "none",
+        svg: "none",
       });
 
     await page.evaluate(() => {
@@ -554,8 +554,8 @@ test.describe("single-page interactions", () => {
     await expect
       .poll(() => readBoardTouchAction(page))
       .toMatchObject({
-        board: "pan-x pan-y",
-        svg: "pan-x pan-y",
+        board: "none",
+        svg: "none",
       });
 
     await boardPage.tool("hand").click();
@@ -570,8 +570,8 @@ test.describe("single-page interactions", () => {
     await expect
       .poll(() => readBoardTouchAction(page))
       .toMatchObject({
-        board: "pan-x pan-y",
-        svg: "pan-x pan-y",
+        board: "none",
+        svg: "none",
       });
   });
 

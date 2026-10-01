@@ -749,6 +749,7 @@ function createHarness() {
       const onMutationRejected = moduleNamespace.onMutationRejected;
       const onSizeChange = moduleNamespace.onSizeChange;
       const getTouchPolicy = moduleNamespace.getTouchPolicy;
+      const cancelTouchGesture = moduleNamespace.cancelTouchGesture;
       const tool = /** @type {any} */ ({
         name: toolName,
         shortcut: moduleNamespace.shortcut || stateMetadata.shortcut,
@@ -805,6 +806,10 @@ function createHarness() {
           : undefined,
         getTouchPolicy: getTouchPolicy
           ? () => getTouchPolicy(toolState)
+          : undefined,
+        cancelTouchGesture: cancelTouchGesture
+          ? (/** @type {TouchEvent} */ event) =>
+              cancelTouchGesture(toolState, event)
           : undefined,
       });
       if (!tool.listeners) {
@@ -2626,7 +2631,7 @@ test("Hand box selection does not fall back to target bbox reads without Interse
   assert.equal(globalAny.Tools.sentMessages.length, 0);
 });
 
-test("Hand tool declares native touch scrolling when selector mode is off", async () => {
+test("Hand tool owns touch gestures in pan and selector modes", async () => {
   const harness = createHarness();
   const handTool = await harness.loadTool("hand");
 
@@ -2634,7 +2639,7 @@ test("Hand tool declares native touch scrolling when selector mode is off", asyn
   assert.equal(globalAny.Tools.svg.style.touchAction, undefined);
 
   handTool.onstart?.(null);
-  assert.equal(handTool.getTouchPolicy?.(), "native-pan");
+  assert.equal(handTool.getTouchPolicy?.(), "app-gesture");
   assert.equal(globalAny.Tools.board.style.touchAction, undefined);
   assert.equal(globalAny.Tools.svg.style.touchAction, undefined);
 
@@ -2646,14 +2651,25 @@ test("Hand tool declares native touch scrolling when selector mode is off", asyn
 
   handTool.secondary.active = false;
   handTool.secondary.switch();
-  assert.equal(handTool.getTouchPolicy?.(), "native-pan");
+  assert.equal(handTool.getTouchPolicy?.(), "app-gesture");
   assert.equal(globalAny.Tools.board.style.touchAction, undefined);
   assert.equal(globalAny.Tools.svg.style.touchAction, undefined);
 });
 
-test("Hand tool touch gestures do not run synthetic drag panning", async () => {
+test("Hand tool pans with one finger and cancels before a pinch", async () => {
   const harness = createHarness();
   const handTool = await harness.loadTool("hand");
+  /** @type {Array<Array<string | number>>} */
+  const pans = [];
+  globalAny.Tools.viewportState.controller.beginPan = (
+    /** @type {number} */ x,
+    /** @type {number} */ y,
+  ) => pans.push(["begin", x, y]);
+  globalAny.Tools.viewportState.controller.movePan = (
+    /** @type {number} */ x,
+    /** @type {number} */ y,
+  ) => pans.push(["move", x, y]);
+  globalAny.Tools.viewportState.controller.endPan = () => pans.push(["end"]);
   const pressEvent = createToolEvent(null, {
     touches: [{ clientX: 100, clientY: 100 }],
     changedTouches: [{ clientX: 100, clientY: 100 }],
@@ -2679,8 +2695,20 @@ test("Hand tool touch gestures do not run synthetic drag panning", async () => {
     pressEvent.preventDefaultCount +
       moveEvent.preventDefaultCount +
       releaseEvent.preventDefaultCount,
-    0,
+    3,
   );
+  assert.deepEqual(pans, [
+    ["begin", 100, 100],
+    ["move", 120, 120],
+    ["move", 120, 120],
+    ["end"],
+  ]);
+  handTool.listeners.press(0, 0, pressEvent, true);
+  handTool.cancelTouchGesture?.(moveEvent);
+  const count = pans.length;
+  handTool.listeners.move(0, 0, moveEvent, true);
+  assert.equal(pans.length, count);
+  assert.deepEqual(pans[pans.length - 1], ["end"]);
 });
 
 test("Eraser replay removes only the targeted stable id", async () => {

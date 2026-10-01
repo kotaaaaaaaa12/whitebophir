@@ -373,6 +373,8 @@ class GestureCoordinator {
           if (event.touches.length === 0) {
             this.handlers.endPinchPan();
             this.reset();
+          } else if (event.touches.length === 1) {
+            this.handlers.cancelPinchPan();
           }
           return;
         }
@@ -434,7 +436,7 @@ export function createViewportController(Tools) {
   let touchPolicy = "app-gesture";
   /** @type {{x: number, y: number, scrollLeft: number, scrollTop: number} | null} */
   let activePan = null;
-  /** @type {{distance: number, scale: number, boardX: number, boardY: number} | null} */
+  /** @type {{distance: number, scale: number, boardX: number, boardY: number, firstId: number, secondId: number} | null} */
   let activePinchPan = null;
   /** @type {(() => void) | null} */
   let temporaryPanCleanup = null;
@@ -495,6 +497,13 @@ export function createViewportController(Tools) {
   function panTo(left, top) {
     window.scrollTo(left, top);
     scheduleViewportHashSync();
+  }
+
+  function documentScrollPosition() {
+    return {
+      left: finiteOr(window.scrollX, document.documentElement.scrollLeft || 0),
+      top: finiteOr(window.scrollY, document.documentElement.scrollTop || 0),
+    };
   }
 
   /**
@@ -614,8 +623,8 @@ export function createViewportController(Tools) {
   function applyTouchPolicy() {
     const dom = getAttachedDom();
     if (!dom) return;
-    // Hand mode uses document scrolling as board panning. Other tools own
-    // touch input themselves, so browser panning and browser zoom stay off.
+    // Board tools own touch input, including one-finger hand panning. Native
+    // pan remains available only for callers that explicitly request it.
     const touchAction =
       touchPolicy === "native-pan"
         ? BROWSER_SCROLL_WITHOUT_ZOOM_TOUCH_ACTION
@@ -876,6 +885,17 @@ export function createViewportController(Tools) {
    * @returns {[Touch, Touch] | null}
    */
   function getPinchTouches(event) {
+    if (activePinchPan) {
+      const touches = Array.from(event.touches);
+      const first = touches.find(
+        (touch) => touch.identifier === activePinchPan?.firstId,
+      );
+      const second = touches.find(
+        (touch) => touch.identifier === activePinchPan?.secondId,
+      );
+      if (first && second) return [first, second];
+      activePinchPan = null;
+    }
     const first = event.touches[0];
     const second = event.touches[1];
     return first && second ? [first, second] : null;
@@ -888,9 +908,10 @@ export function createViewportController(Tools) {
    * @returns {{x: number, y: number}}
    */
   function clientPointToBoardPoint(clientX, clientY, scale) {
+    const origin = boardClientOrigin();
     return {
-      x: screenToBoard(document.documentElement.scrollLeft + clientX, scale),
-      y: screenToBoard(document.documentElement.scrollTop + clientY, scale),
+      x: screenToBoard(clientX - origin.left, scale),
+      y: screenToBoard(clientY - origin.top, scale),
     };
   }
 
@@ -901,6 +922,7 @@ export function createViewportController(Tools) {
   function startPinchPan(event) {
     const touches = getPinchTouches(event);
     if (!touches) return;
+    if (activePinchPan) return;
     const distance = distanceBetween(touches[0], touches[1]);
     if (distance < PINCH_MIN_DISTANCE) return;
     clearViewportHashSync();
@@ -916,6 +938,8 @@ export function createViewportController(Tools) {
       scale,
       boardX: boardPoint.x,
       boardY: boardPoint.y,
+      firstId: touches[0].identifier,
+      secondId: touches[1].identifier,
     };
   }
 
@@ -924,7 +948,7 @@ export function createViewportController(Tools) {
    * @returns {void}
    */
   function updatePinchPan(event) {
-    if (event.touches.length !== 2) return;
+    if (event.touches.length < 2) return;
     const touches = getPinchTouches(event);
     if (!touches) return;
     if (!activePinchPan) startPinchPan(event);
@@ -936,16 +960,20 @@ export function createViewportController(Tools) {
     );
     // Keep the board point that was under the initial midpoint under the
     // current midpoint, so equal-distance two-finger moves pan without zooming.
+    const origin = boardClientOrigin();
+    const scroll = documentScrollPosition();
     panTo(
-      activePinchPan.boardX * scale - center.clientX,
-      activePinchPan.boardY * scale - center.clientY,
+      scroll.left +
+        origin.left +
+        activePinchPan.boardX * scale -
+        center.clientX,
+      scroll.top + origin.top + activePinchPan.boardY * scale - center.clientY,
     );
   }
 
   function endPinchPan() {
-    const wasPinching = !!activePinchPan;
     activePinchPan = null;
-    if (wasPinching) scheduleViewportHashSync();
+    scheduleViewportHashSync();
   }
 
   function cancelPinchPan() {

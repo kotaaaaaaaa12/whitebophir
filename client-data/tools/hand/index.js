@@ -73,7 +73,7 @@ export const toolId = "hand";
 export const shortcut = "h";
 export const mouseCursor = "move";
 export const showMarker = true;
-export const touchListenerOptions = { passive: true };
+export const touchListenerOptions = { passive: false };
 export const visibleWhenReadOnly = true;
 export const updatableFields = /** @type {const} */ (["transform"]);
 export const batchMessageFields = /** @type {const} */ ({
@@ -1284,12 +1284,10 @@ function getPointerClientCoord(evt, axis) {
  * @param {number} _x
  * @param {number} _y
  * @param {MouseEvent | TouchEvent} evt
- * @param {boolean} isTouchEvent
  */
-function startHand(state, _x, _y, evt, isTouchEvent) {
+function startHand(state, _x, _y, evt) {
   void _x;
   void _y;
-  if (isTouchEvent) return;
   if (!safePreventDefault(evt)) return;
   state.Tools.viewport.beginPan(
     getPointerClientCoord(evt, "clientX"),
@@ -1303,12 +1301,10 @@ function startHand(state, _x, _y, evt, isTouchEvent) {
  * @param {number} _x
  * @param {number} _y
  * @param {MouseEvent | TouchEvent} evt
- * @param {boolean} isTouchEvent
  */
-function moveHand(state, _x, _y, evt, isTouchEvent) {
+function moveHand(state, _x, _y, evt) {
   void _x;
   void _y;
-  if (isTouchEvent) return;
   if (state.selected && !("w" in state.selected)) {
     if (!safePreventDefault(evt)) return;
     state.Tools.viewport.movePan(
@@ -1348,7 +1344,8 @@ function resetHandUiState(state) {
  * @param {boolean} isTouchEvent
  */
 export function press(state, x, y, evt, isTouchEvent) {
-  if (!isSelectorActive(state)) startHand(state, x, y, evt, isTouchEvent);
+  void isTouchEvent;
+  if (!isSelectorActive(state)) startHand(state, x, y, evt);
   else clickSelector(state, x, y, evt);
 }
 
@@ -1360,7 +1357,8 @@ export function press(state, x, y, evt, isTouchEvent) {
  * @param {boolean} isTouchEvent
  */
 export function move(state, x, y, evt, isTouchEvent) {
-  if (!isSelectorActive(state)) moveHand(state, x, y, evt, isTouchEvent);
+  void isTouchEvent;
+  if (!isSelectorActive(state)) moveHand(state, x, y, evt);
   else moveSelector(state, x, y, evt, false);
 }
 
@@ -1372,11 +1370,10 @@ export function move(state, x, y, evt, isTouchEvent) {
  * @param {boolean} isTouchEvent
  */
 export function release(state, x, y, evt, isTouchEvent) {
+  void isTouchEvent;
   if (!isSelectorActive(state)) {
-    if (!isTouchEvent) {
-      moveHand(state, x, y, evt, false);
-      endHand(state);
-    }
+    moveHand(state, x, y, evt);
+    endHand(state);
   } else moveSelector(state, x, y, evt, true);
   const result = isSelectorActive(state) ? releaseSelector(state) : undefined;
   state.selected = null;
@@ -1422,12 +1419,20 @@ export async function boot(ctx) {
 
 /** @param {HandState} state */
 export function onquit(state) {
+  endHand(state);
   resetHandUiState(state);
 }
 
+export function getTouchPolicy() {
+  // Own the first finger so Safari cannot keep a native scroll gesture alive
+  // when a second finger starts a board pinch.
+  return "app-gesture";
+}
+
 /** @param {HandState} state */
-export function getTouchPolicy(state) {
-  return isSelectorActive(state) ? "app-gesture" : "native-pan";
+export function cancelTouchGesture(state) {
+  endHand(state);
+  resetHandUiState(state);
 }
 
 /** @param {HandState} state */

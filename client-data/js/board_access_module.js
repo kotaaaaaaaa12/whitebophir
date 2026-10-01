@@ -48,6 +48,8 @@ export class AccessModule {
     const hideEditingTools = !this.canEdit;
     const settings = document.getElementById("settings");
     if (settings) settings.style.display = hideEditingTools ? "none" : "";
+    const stylePanel = document.getElementById("stylePanel");
+    if (stylePanel) stylePanel.style.display = hideEditingTools ? "none" : "";
 
     Tools.toolRegistry.syncRenderedToolAvailability();
     Tools.toolRegistry.syncDrawToolAvailability(true);

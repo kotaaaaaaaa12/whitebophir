@@ -11,6 +11,8 @@ svg {
 html,
 body {
   overscroll-behavior: none;
+  overflow-anchor: none;
+  scroll-behavior: auto;
 }
 
 :root {
@@ -47,6 +49,11 @@ html[data-ui-direction="rtl"]
   :is(.tool-name, .style-panel-title, .style-row-name, .style-row-hint) {
   direction: rtl;
   unicode-bidi: plaintext;
+  text-align: start;
+}
+
+html[data-ui-direction="rtl"] .style-panel {
+  direction: rtl;
   text-align: start;
 }
 
@@ -1306,7 +1313,8 @@ select {
   line-height: 1;
   vertical-align: top;
 }
-#menu .tool-shortcut {
+#menu .tool-shortcut,
+.style-panel .tool-shortcut {
   display: none;
   align-items: center;
   justify-content: center;
@@ -1443,8 +1451,7 @@ input {
   margin: 0;
 }
 
-#styleTool[open] + .style-panel,
-.style-tool-menu.style-tool-hover-open > .style-panel {
+.style-panel.style-panel-open {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;

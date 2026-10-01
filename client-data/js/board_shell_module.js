@@ -140,6 +140,17 @@ export class BoardShellModule {
     }
     const styleTool = styleToolElement;
 
+    // Keep the fixed panel outside the scrolling rail. Safari clips fixed
+    // descendants to that rail even when their layout bounds are on screen.
+    document.body.appendChild(stylePanel);
+    const syncStylePanelVisibility = () => {
+      const open =
+        styleTool.open ||
+        styleToolMenu.classList.contains("style-tool-hover-open");
+      stylePanel.classList.toggle("style-panel-open", open);
+      styleSummary.setAttribute("aria-expanded", String(open));
+    };
+
     const positionStylePanel = () => {
       Tools.ui.positionAnchoredPanel({
         anchor: styleSummary,
@@ -159,9 +170,11 @@ export class BoardShellModule {
         if (!styleTool.open) {
           styleToolMenu.classList.add("style-tool-hover-open");
         }
+        syncStylePanelVisibility();
       },
       close: () => {
         styleToolMenu.classList.remove("style-tool-hover-open");
+        syncStylePanelVisibility();
       },
       position: positionStylePanel,
       hoverElements: [styleToolMenu, stylePanel],
@@ -172,8 +185,15 @@ export class BoardShellModule {
     styleTool.addEventListener("toggle", () => {
       stylePanelController.cancelClose();
       styleToolMenu.classList.remove("style-tool-hover-open");
+      syncStylePanelVisibility();
       if (styleTool.open) stylePanelController.syncPosition();
     });
+    getRequiredElement("menu").addEventListener(
+      "scroll",
+      () => stylePanelController.syncPosition(),
+      { passive: true },
+    );
+    syncStylePanelVisibility();
 
     Tools.preferences.colorChooser = colorChooser;
     colorChooser.value = Tools.preferences.currentColor;

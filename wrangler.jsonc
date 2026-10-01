@@ -19,32 +19,16 @@
   ],
   "durable_objects": {
     "bindings": [
-      {
-        "name": "WHITEBOARD",
-        "class_name": "WhiteboardContainer"
-      },
-      {
-        "name": "STORAGE",
-        "class_name": "WhiteboardStorage"
-      }
+      { "name": "WHITEBOARD", "class_name": "WhiteboardContainer" },
+      { "name": "STORAGE", "class_name": "WhiteboardStorage" }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": [
-        "WhiteboardContainer",
-        "WhiteboardStorage"
-      ]
+      "new_sqlite_classes": ["WhiteboardContainer", "WhiteboardStorage"]
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "BOARDS",
-      "bucket_name": "whitebophir-boards"
-    }
-  ],
-  "observability": {
-    "enabled": true
-  }
+  "r2_buckets": [{ "binding": "BOARDS", "bucket_name": "whitebophir-boards" }],
+  "observability": { "enabled": true }
 }

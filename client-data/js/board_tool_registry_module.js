@@ -65,8 +65,8 @@ function getAttachedBoardDom() {
  * @returns {boolean}
  */
 function toolCanReceiveBrowserOwnedTouch(tool) {
-  // Hand native-pan lets the browser scroll. Always-on tools such as cursor
-  // only observe pointer position alongside the active tool.
+  // Always-on tools such as cursor observe pointer position alongside the
+  // active tool. Explicit native-pan tools delegate scrolling to the browser.
   return tool.alwaysOn === true || tool.getTouchPolicy?.() === "native-pan";
 }
 

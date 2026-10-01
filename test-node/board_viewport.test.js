@@ -1101,3 +1101,62 @@ test("viewport expands to the full board at minimum zoom", async () => {
     browser.restore();
   }
 });
+
+test("pinch anchors to board geometry and restarts when a finger is replaced", async () => {
+  const env = createViewportHashTestEnvironment("#0,0,0.500");
+  try {
+    const { createViewportController } = await loadViewportModule();
+    const tools = createViewportHashTestTools(0.5);
+    const board = createOverlayBoardElement();
+    board.getBoundingClientRect = () => ({
+      left: 40 - env.document.documentElement.scrollLeft,
+      top: 30 - env.document.documentElement.scrollTop,
+    });
+    attachViewportDom(tools, board);
+    env.document.documentElement.scrollLeft = 100;
+    env.document.documentElement.scrollTop = 200;
+    const viewport = createViewportController(tools);
+    viewport.install();
+    const first = createTouch(1, 100, 100);
+    const second = createTouch(2, 140, 100);
+    board.dispatch(
+      "touchstart",
+      createTouchEvent("touchstart", [first, second], [second]),
+    );
+    const movedFirst = createTouch(1, 80, 100);
+    const movedSecond = createTouch(2, 160, 100);
+    board.dispatch(
+      "touchmove",
+      createTouchEvent(
+        "touchmove",
+        [movedFirst, movedSecond],
+        [movedFirst, movedSecond],
+      ),
+    );
+    assert.equal(viewport.getScale(), 1);
+    assert.equal(env.document.documentElement.scrollLeft, 280);
+    assert.equal(env.document.documentElement.scrollTop, 470);
+    board.dispatch(
+      "touchend",
+      createTouchEvent("touchend", [movedFirst], [movedSecond]),
+    );
+    const replacement = createTouch(2, 120, 100);
+    board.dispatch(
+      "touchstart",
+      createTouchEvent("touchstart", [movedFirst, replacement], [replacement]),
+    );
+    board.dispatch(
+      "touchmove",
+      createTouchEvent(
+        "touchmove",
+        [movedFirst, replacement],
+        [movedFirst, replacement],
+      ),
+    );
+    assert.equal(viewport.getScale(), 1);
+    assert.equal(env.document.documentElement.scrollLeft, 280);
+    assert.equal(env.document.documentElement.scrollTop, 470);
+  } finally {
+    env.restore();
+  }
+});
