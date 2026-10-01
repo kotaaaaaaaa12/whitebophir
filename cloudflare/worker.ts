@@ -3,6 +3,7 @@ import {
   ContainerProxy,
   getContainer,
 } from "@cloudflare/containers";
+import { startupMessage } from "../client-data/js/startup_i18n.js";
 export { ContainerProxy };
 export { WhiteboardStorage } from "./storage";
 
@@ -78,13 +79,20 @@ export default {
           error: String(error),
         }),
       );
-      return new Response(
-        "The whiteboard is starting or temporarily unavailable. Please try again.",
-        {
-          status: 503,
-          headers: { "retry-after": "5", "cache-control": "no-store" },
-        },
+      const { language, message } = startupMessage(
+        request.url,
+        request.headers.get("Accept-Language") || "",
       );
+      return new Response(message, {
+        status: 503,
+        headers: {
+          "retry-after": "5",
+          "cache-control": "no-store",
+          "content-type": "text/plain; charset=utf-8",
+          "content-language": language,
+          vary: "Accept-Language",
+        },
+      });
     }
   },
 } satisfies ExportedHandler<Env>;

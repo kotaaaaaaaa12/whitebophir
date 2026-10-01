@@ -1,4 +1,5 @@
 import { adminText, resolveAdminLanguage } from "./admin_i18n.js";
+import { matchSupportedLanguage } from "./supported_languages.js";
 
 /** @param {string} id @returns {HTMLElement} */
 function element(id) {
@@ -26,17 +27,20 @@ const languageControl = /** @type {HTMLSelectElement} */ (
   element("adminLanguage")
 );
 const LANGUAGE_KEY = "wbo.adminLanguage";
-let languagePreference =
-  new URL(window.location.href).searchParams.get("lang") || "auto";
-if (languagePreference !== "en" && languagePreference !== "ja") {
+const requestedLanguage = new URL(window.location.href).searchParams.get(
+  "lang",
+);
+let languagePreference = requestedLanguage
+  ? matchSupportedLanguage(requestedLanguage) || "auto"
+  : "auto";
+if (!requestedLanguage) {
   try {
     languagePreference = localStorage.getItem(LANGUAGE_KEY) || "auto";
   } catch {
     languagePreference = "auto";
   }
 }
-if (!["auto", "en", "ja"].includes(languagePreference))
-  languagePreference = "auto";
+languagePreference = matchSupportedLanguage(languagePreference) || "auto";
 let language = resolveAdminLanguage(languagePreference, navigator.languages);
 languageControl.value = languagePreference;
 
@@ -84,6 +88,7 @@ function showError(error, fallback) {
 
 function localizePage() {
   document.documentElement.lang = language;
+  document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
   document.title = t("page_title");
   for (const node of document.querySelectorAll(
     "[data-i18n], [data-i18n-aria-label], [data-i18n-placeholder], [data-i18n-title]",
@@ -163,7 +168,9 @@ function addBoard(board) {
   const row = document.createElement("tr");
   const name = document.createElement("td");
   name.className = "board-name";
-  name.textContent = board.name;
+  const boardName = document.createElement("bdi");
+  boardName.textContent = board.name;
+  name.appendChild(boardName);
   if (board.protected) {
     const badge = document.createElement("span");
     badge.className = "protected-label";

@@ -294,3 +294,163 @@ test.describe("Japanese administrator dashboard", () => {
     ).toBeVisible();
   });
 });
+
+test("all 21 languages switch labels, counts, errors and confirmations without losing private search results or overflowing", async ({
+  page,
+  server,
+}) => {
+  const { ADMIN_TRANSLATIONS } = await import(
+    "../../client-data/js/admin_i18n.js"
+  );
+  await writeFile(
+    path.join(server.dataPath, "board-private-languages.owner.json"),
+    JSON.stringify({ owner: null, deleted: false }),
+  );
+  await page.goto(`${server.serverUrl}/admin`);
+  await expect(page.locator("#adminLanguage option")).toHaveCount(22);
+  await page.locator("#adminPassword").fill("dashboard-private-test-key");
+  await page.locator("#adminLoginForm button").tap();
+  await expect(page.locator("#boardRows tr")).toHaveCount(1);
+  await page.locator("#boardSearch").fill("private-languages");
+  await page.locator("#boardSearchForm button").tap();
+  await expect(page.locator("#boardCount")).toHaveText("Boards loaded: 1");
+  const catalogUrl = `${server.serverUrl}/api/admin/boards*`;
+  await page.route(catalogUrl, (route) =>
+    route.fulfill({ status: 503, contentType: "application/json", body: "{}" }),
+  );
+  await page.locator("#refreshBoards").tap();
+  await expect(page.locator("#adminStatus")).toContainText("HTTP 503");
+  for (const [language, dictionary] of Object.entries(ADMIN_TRANSLATIONS)) {
+    await page.locator("#adminLanguage").selectOption(language);
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await expect(page.locator("html")).toHaveAttribute(
+      "dir",
+      language === "ar" ? "rtl" : "ltr",
+    );
+    await expect(page.locator("h1")).toHaveText(dictionary.all_boards);
+    await expect(page.locator("#boardRows tr")).toHaveCount(1);
+    await expect(page.locator("#boardSearch")).toHaveValue("private-languages");
+    await expect(page.locator("#boardSearch")).toHaveAttribute(
+      "placeholder",
+      dictionary.search_names,
+    );
+    await expect(page.locator("#boardCount")).toHaveText(
+      dictionary.board_count.replace("{count}", "1"),
+    );
+    await expect(page.locator("#adminStatus")).toHaveText(
+      dictionary.list_failed_http.replace("{status}", "503"),
+    );
+    const open = page.locator(".open-board");
+    await expect(open).toHaveAttribute(
+      "aria-label",
+      dictionary.open_board.replace("{name}", "private-languages"),
+    );
+    await expect(open).toHaveAttribute("href", new RegExp(`lang=${language}`));
+    await page.locator("#boardRows button").tap();
+    await expect(page.locator("#deleteBoardDialog")).toBeVisible();
+    await expect(
+      page.locator("#deleteBoardDialog [data-i18n=delete_warning]"),
+    ).toHaveText(dictionary.delete_warning);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await page
+        .locator("#deleteBoardDialog")
+        .evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    await page.locator('#deleteBoardDialog button[value="cancel"]').tap();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.unroute(catalogUrl);
+  await page.reload();
+  await expect(page.locator("#adminLanguage")).toHaveValue("pl");
+  await expect(page.locator("html")).toHaveAttribute("lang", "pl");
+});
+
+for (const scenario of [
+  { locale: "fr-CA", language: "fr", direction: "ltr" },
+  { locale: "ar-EG", language: "ar", direction: "rtl" },
+  { locale: "zh-Hant", language: "zh-TW", direction: "ltr" },
+]) {
+  test.describe(`automatic ${scenario.locale} localization`, () => {
+    test.use({ locale: scenario.locale });
+    test("detects the locale, translates sign-in failures and carries the language into added board controls", async ({
+      page,
+      server,
+    }) => {
+      const { ADMIN_TRANSLATIONS } = await import(
+        "../../client-data/js/admin_i18n.js"
+      );
+      const translations = (
+        await import("../../server/http/translations.json", {
+          with: { type: "json" },
+        })
+      ).default;
+      const admin = ADMIN_TRANSLATIONS[scenario.language];
+      const board =
+        translations[scenario.language as keyof typeof translations];
+      await writeFile(
+        path.join(server.dataPath, "board-private-localized.owner.json"),
+        JSON.stringify({ owner: null, deleted: false }),
+      );
+      await page.goto(`${server.serverUrl}/admin`);
+      await expect(page.locator("html")).toHaveAttribute(
+        "lang",
+        scenario.language,
+      );
+      await expect(page.locator("html")).toHaveAttribute(
+        "dir",
+        scenario.direction,
+      );
+      await expect(page.locator("#adminLanguage")).toHaveValue("auto");
+      await page.locator("#adminPassword").fill("wrong-password");
+      await page.locator("#adminLoginForm button").tap();
+      await expect(page.locator("#adminStatus")).toHaveText(admin.login_failed);
+      await page.locator("#adminPassword").fill("dashboard-private-test-key");
+      await page.locator("#adminLoginForm button").tap();
+      await expect(page.locator("#boardRows tr")).toHaveCount(1);
+      const popupPromise = page.waitForEvent("popup");
+      await page.locator(".open-board").tap();
+      const popup = await popupPromise;
+      const opened = createBoardPage(popup, server);
+      await opened.waitForSocketConnected();
+      await expect(popup.locator("html")).toHaveAttribute(
+        "lang",
+        scenario.language,
+      );
+      await opened.connectedUsersToggle.tap();
+      await expect(popup.locator("#adminSessionButton")).toHaveText(
+        board.administrator,
+      );
+      await expect(popup.locator(".admin-boards-link")).toHaveText(
+        board.admin_all_boards,
+      );
+      await expect(popup.locator("#deleteBoardButton")).toHaveText(
+        board.delete_board,
+      );
+      await expect(popup.locator("#chooseColor")).toHaveAttribute(
+        "aria-label",
+        board.custom_color,
+      );
+      await popup.locator("#adminSessionButton").tap();
+      await expect(popup.getByRole("dialog")).toContainText(
+        board.admin_signed_in,
+      );
+      await popup.close();
+      await page.locator("#adminLanguage").selectOption("de");
+      await page.goto(`${server.serverUrl}/admin`);
+      await expect(page.locator("html")).toHaveAttribute("lang", "de");
+      await page.goto(`${server.serverUrl}/admin?lang=${scenario.locale}`);
+      await expect(page.locator("#adminLanguage")).toHaveValue(
+        scenario.language,
+      );
+    });
+  });
+}

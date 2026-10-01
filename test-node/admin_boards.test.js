@@ -51,14 +51,38 @@ test("private board catalog requires a signed administrator session, includes em
     });
     assert.match(japanese.headers.get("vary") || "", /Accept-Language/);
     const japaneseHtml = await japanese.text();
-    assert.match(japaneseHtml, /<html lang="ja">/);
+    assert.match(japaneseHtml, /<html lang="ja" dir="ltr">/);
     assert.match(japaneseHtml, /すべてのボード/);
     assert.match(japaneseHtml, /管理パスワード/);
     assert.equal(japaneseHtml.includes("secret-legacy"), false);
     const english = await fetch(`${base}/admin?lang=en`, {
       headers: { "accept-language": "ja-JP" },
     });
-    assert.match(await english.text(), /<html lang="en">/);
+    assert.match(await english.text(), /<html lang="en" dir="ltr">/);
+    const { ADMIN_TRANSLATIONS } = await import(
+      "../client-data/js/admin_i18n.js"
+    );
+    for (const [language, dictionary] of Object.entries(ADMIN_TRANSLATIONS)) {
+      const localized = await fetch(`${base}/admin?lang=${language}`, {
+        headers: { "accept-language": "en" },
+      });
+      const body = await localized.text();
+      const direction = language === "ar" ? "rtl" : "ltr";
+      assert.ok(body.includes(`<html lang="${language}" dir="${direction}">`));
+      assert.ok(body.includes(dictionary.all_boards || ""), language);
+      assert.equal((body.match(/<option value=/g) || []).length, 22);
+      assert.equal(body.includes("secret-legacy"), false);
+    }
+    for (const [header, language] of /** @type {[string, string][]} */ ([
+      ["ko-KR,zh-Hant;q=0.9", "zh-TW"],
+      ["ja;q=0,fr-CA;q=0.9,en;q=0.8", "fr"],
+      ["ar-EG,en;q=0.8", "ar"],
+    ])) {
+      const localized = await fetch(`${base}/admin`, {
+        headers: { "accept-language": header },
+      });
+      assert.ok((await localized.text()).includes(`<html lang="${language}"`));
+    }
     const created = await fetch(`${base}/boards/empty-created`, {
       headers: { cookie: userCookie },
     });

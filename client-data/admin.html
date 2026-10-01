@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="{{language}}">
+<html lang="{{language}}" dir="{{direction}}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
   <base href="{{baseHref}}" />
   <title data-i18n="page_title">{{admin.page_title}}</title>
-  <link rel="stylesheet" href="admin.css?v=2" />
-  <script type="module" src="js/admin_page.js?v=2"></script>
+  <link rel="stylesheet" href="admin.css?v=3" />
+  <script type="module" src="js/admin_page.js?v=3"></script>
 </head>
 <body>
   <main>
@@ -22,8 +22,9 @@
       <label for="adminLanguage" data-i18n="language">{{admin.language}}</label>
       <select id="adminLanguage">
         <option value="auto" data-i18n="automatic">{{admin.automatic}}</option>
-        <option value="en">English</option>
-        <option value="ja">日本語</option>
+        {{#each languageOptions}}
+        <option value="{{code}}" lang="{{code}}">{{name}}</option>
+        {{/each}}
       </select>
     </div>
     <p id="adminStatus" role="status" aria-live="polite" data-i18n="checking_access">{{admin.checking_access}}</p>
@@ -62,7 +63,7 @@
   <dialog id="deleteBoardDialog" aria-labelledby="deleteTitle">
     <form method="dialog">
       <h2 id="deleteTitle" data-i18n="delete_title">{{admin.delete_title}}</h2>
-      <p id="deleteBoardName" class="board-name"></p>
+      <p id="deleteBoardName" class="board-name" dir="auto"></p>
       <p data-i18n="delete_warning">{{admin.delete_warning}}</p>
       <div class="dialog-actions">
         <button type="submit" value="cancel" autofocus data-i18n="cancel">{{admin.cancel}}</button>

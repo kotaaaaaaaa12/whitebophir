@@ -1,5 +1,6 @@
 import { ADMIN_TRANSLATIONS } from "../../client-data/js/admin_i18n.js";
 import { isValidBoardName } from "../../client-data/js/board_name.js";
+import { SUPPORTED_LANGUAGES } from "../../client-data/js/supported_languages.js";
 import {
   adminSessionExpiry,
   adminSessionFromCookie,
@@ -30,9 +31,16 @@ export async function serveAdminPage(ctx) {
   );
   const template = ctx.runtime.adminTemplate;
   const parameters = template.parameters(ctx.publicUrl, ctx.request, false);
-  const language = parameters.language === "ja" ? "ja" : "en";
+  const language = parameters.language;
   const html = template.render({
     language,
+    direction: parameters.direction,
+    languageOptions: Object.entries(SUPPORTED_LANGUAGES).map(
+      ([code, name]) => ({
+        code,
+        name,
+      }),
+    ),
     baseHref: publicPath(config, "/"),
     admin: ADMIN_TRANSLATIONS[language],
   });

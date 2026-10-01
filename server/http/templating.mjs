@@ -8,6 +8,10 @@ import {
   TOOLBAR_TOOLS,
 } from "../../client-data/tools/manifest.js";
 import { MODERATION_RULES } from "../../client-data/js/moderation_rules.js";
+import {
+  matchSupportedLanguage,
+  parseAcceptLanguage,
+} from "../../client-data/js/supported_languages.js";
 import { createClientConfiguration } from "./client_configuration.mjs";
 import { startCompressedResponse } from "./compression.mjs";
 import { parseRequestUrl } from "./request_url.mjs";
@@ -70,67 +74,6 @@ function firstHeaderValue(value) {
 }
 
 /**
- * @param {string} tag
- * @returns {string}
- */
-function canonicalizeLocale(tag) {
-  const trimmed = tag.trim();
-  if (!trimmed || trimmed === "*") return trimmed;
-  try {
-    return new Intl.Locale(trimmed).toString();
-  } catch {
-    return trimmed;
-  }
-}
-
-/**
- * @param {string} header
- * @returns {{tag: string, quality: number}[]}
- */
-function parseAcceptLanguage(header) {
-  return header
-    .split(",")
-    .map(function parsePart(part, index) {
-      const [rawTag, ...rawParams] = part.split(";");
-      const tag = canonicalizeLocale(rawTag || "");
-      if (!tag) return null;
-      let quality = 1;
-      for (const rawParam of rawParams) {
-        const [key, value] = rawParam.split("=");
-        if (key && key.trim() === "q") {
-          const parsed = Number.parseFloat((value || "").trim());
-          quality = Number.isFinite(parsed) ? parsed : 0;
-        }
-      }
-      return { tag, quality, index };
-    })
-    .filter(
-      /**
-       * @param {{tag: string, quality: number, index: number} | null} language
-       * @returns {language is {tag: string, quality: number, index: number}}
-       */
-      function isSupported(language) {
-        return language !== null && language.quality > 0;
-      },
-    )
-    .sort(function compareLanguages(a, b) {
-      if (b.quality !== a.quality) return b.quality - a.quality;
-      return a.index - b.index;
-    })
-    .map(function stripIndex(language) {
-      return { tag: language.tag, quality: language.quality };
-    });
-}
-
-/**
- * @param {string} locale
- * @returns {string}
- */
-function localeBase(locale) {
-  return locale.split("-", 1)[0] || locale;
-}
-
-/**
  * @param {string[]} supportedLanguages
  * @param {{tag: string, quality: number}[]} acceptedLanguages
  * @returns {string | undefined}
@@ -139,12 +82,8 @@ function pickLanguage(supportedLanguages, acceptedLanguages) {
   for (const accepted of acceptedLanguages) {
     const acceptedTag = accepted.tag;
     if (acceptedTag === "*") return supportedLanguages[0];
-    const acceptedBase = localeBase(acceptedTag);
-    for (const supportedLanguage of supportedLanguages) {
-      if (localeBase(supportedLanguage) === acceptedBase) {
-        return supportedLanguage;
-      }
-    }
+    const matched = matchSupportedLanguage(acceptedTag);
+    if (matched && supportedLanguages.includes(matched)) return matched;
   }
   return undefined;
 }
@@ -302,23 +241,13 @@ class Template extends StaticTemplate {
    * @returns {TemplateParameters}
    */
   parameters(parsedUrl, request, isModerator, extraParams) {
+    const requested_language = parsedUrl.searchParams.get("lang") || "";
     const accept_language_str =
-      parsedUrl.searchParams.get("lang") ||
+      (matchSupportedLanguage(requested_language) ? requested_language : "") ||
       firstHeaderValue(request.headers["accept-language"]) ||
       "";
     const accept_languages = parseAcceptLanguage(accept_language_str);
-    let language = pickLanguage(languages, accept_languages) || "en";
-    // The loose matcher returns the first language that partially matches, so we need to
-    // check if the preferred language is supported to return it
-    if (accept_languages.length > 0) {
-      const preferred = accept_languages[0];
-      if (preferred) {
-        const preferred_language = preferred.tag;
-        if (languages.includes(preferred_language)) {
-          language = preferred_language;
-        }
-      }
-    }
+    const language = pickLanguage(languages, accept_languages) || "en";
     const translations = TRANSLATIONS[language] || {};
     const configuration = this.clientConfig;
     const prefix =
