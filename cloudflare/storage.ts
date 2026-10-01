@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { CATALOG_PAGE_SIZE } from "../client-data/js/board_catalog_constants.js";
 import { decodeAndValidateBoardName } from "../client-data/js/board_name.js";
 
 interface Entry {
@@ -65,6 +66,35 @@ export class WhiteboardStorage extends DurableObject<Env> {
   // never routes user requests here, so there is no public storage endpoint.
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/catalog" && request.method === "GET") {
+      const after = url.searchParams.get("after") || "";
+      const query = (url.searchParams.get("q") || "").trim().toLowerCase();
+      if (
+        (after && !decodeAndValidateBoardName(encodeURIComponent(after))) ||
+        query.length > 100
+      )
+        return new Response("Invalid catalog query", { status: 400 });
+      const rows = this.ctx.storage.sql
+        .exec<{ name: string }>(
+          `SELECT catalog.name FROM (
+          SELECT name FROM boards UNION SELECT name FROM lifecycle
+        ) AS catalog LEFT JOIN lifecycle ON lifecycle.name = catalog.name
+        WHERE COALESCE(lifecycle.deleted, 0) = 0 AND catalog.name > ?
+          AND instr(catalog.name, ?) > 0
+        ORDER BY catalog.name LIMIT ?`,
+          after,
+          query,
+          CATALOG_PAGE_SIZE + 1,
+        )
+        .toArray();
+      return Response.json({
+        names: rows.slice(0, CATALOG_PAGE_SIZE).map((row) => row.name),
+        nextCursor:
+          rows.length > CATALOG_PAGE_SIZE
+            ? (rows[CATALOG_PAGE_SIZE - 1]?.name ?? null)
+            : null,
+      });
+    }
     if (url.pathname === "/boards" && request.method === "GET") {
       const rows = this.ctx.storage.sql
         .exec<{ name: string }>(

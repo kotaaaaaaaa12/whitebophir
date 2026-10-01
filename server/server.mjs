@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import * as productionConfig from "./configuration.mjs";
 import { route, routeHttpRequests } from "./http/dispatch.mjs";
 import observability from "./observability/index.mjs";
+import { listAdminBoards, serveAdminPage } from "./routes/admin_boards.mjs";
 import { manageAdminSession } from "./routes/admin_session.mjs";
 import {
   downloadBoard,
@@ -37,6 +38,9 @@ const hasDot = (value) => typeof value === "string" && value.includes(".");
  */
 function createWhiteboardHttpHandler() {
   return routeHttpRequests([
+    route("/admin", serveAdminPage, "admin_page"),
+    route("/admin/", serveAdminPage, "admin_page"),
+    route("/api/admin/boards", listAdminBoards, "admin_boards"),
     route("/api/admin", manageAdminSession, "admin_session"),
     route("/api/boards/{board}", manageBoard, "board_management"),
     route("/boards", redirectBoardQuery, "boards_redirect"),

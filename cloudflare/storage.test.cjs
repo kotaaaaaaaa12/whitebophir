@@ -14,8 +14,33 @@ const root = path.resolve(__dirname, "..");
 async function createStorage(directory) {
   const built = await esbuild.build({
     stdin: {
-      contents:
-        'export { WhiteboardStorage } from "./cloudflare/storage.ts"; export default { fetch(r,e) { return e.STORAGE.getByName("boards-v1").fetch(r); } };',
+      contents: `
+        import { WhiteboardStorage as Storage } from "./cloudflare/storage.ts";
+        // Test-only handshake: delete only after boundedJson begins reading.
+        // Otherwise an early 410 can close an unfinished HTTP upload (EPIPE)
+        // before this test reaches the intended post-admission deletion race.
+        export class WhiteboardStorage extends Storage {
+          signalBodyStarted = () => {};
+          bodyStarted = new Promise(resolve => { this.signalBodyStarted = resolve; });
+          async fetch(request) {
+            if (new URL(request.url).pathname === "/__test/body-started") {
+              await this.bodyStarted;
+              return new Response(null, {status: 204});
+            }
+            if (request.headers.get("x-test-delayed-body") === "1") {
+              const body = request.body.pipeThrough(new TransformStream({
+                transform: (chunk, controller) => {
+                  this.signalBodyStarted();
+                  controller.enqueue(chunk);
+                }
+              }));
+              request = new Request(request, {body});
+            }
+            return super.fetch(request);
+          }
+        }
+        export default { fetch(r,e) { return e.STORAGE.getByName("boards-v1").fetch(r); } };
+      `,
       resolveDir: root,
     },
     bundle: true,
@@ -229,8 +254,16 @@ test("ownership persists and deletion removes checkpoints, orphaned snapshots an
     });
     const delayedJournal = storage.dispatchFetch(
       "http://wbo.storage/journal/owned",
-      { method: "POST", body: delayedBody, duplex: "half" },
+      {
+        method: "POST",
+        body: delayedBody,
+        duplex: "half",
+        headers: { "x-test-delayed-body": "1" },
+      },
     );
+    await storage.dispatchFetch("http://wbo.storage/__test/body-started", {
+      signal: AbortSignal.timeout(5000),
+    });
     const removed = await storage.dispatchFetch(
       "http://wbo.storage/lifecycle/owned",
       { method: "DELETE" },
@@ -266,6 +299,85 @@ test("ownership persists and deletion removes checkpoints, orphaned snapshots an
       410,
     );
     assert.equal((await register("b".repeat(64))).deleted, 1);
+  } finally {
+    await storage.dispose();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("private catalog includes empty lifecycle records, saved boards, search and pagination, excludes tombstones, and survives a storage restart", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wbo-storage-catalog-"));
+  let storage = await createStorage(dir);
+  try {
+    for (let index = 0; index < 102; index++) {
+      const response = await storage.dispatchFetch(
+        `http://wbo.storage/lifecycle/private-${String(index).padStart(3, "0")}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ owner: "a".repeat(64), mayClaim: true }),
+        },
+      );
+      assert.equal(response.status, 200);
+      await response.text();
+    }
+    const entry = {
+      seq: 1,
+      acceptedAtMs: Date.now(),
+      mutation: {
+        tool: 2,
+        type: 1,
+        id: "saved-item",
+        x: 1,
+        y: 2,
+        x2: 3,
+        y2: 4,
+        color: "#000000",
+        size: 2,
+      },
+    };
+    assert.equal((await commit(storage, "saved-legacy", [entry])).status, 204);
+    assert.equal(
+      (
+        await storage.dispatchFetch(
+          "http://wbo.storage/lifecycle/private-050",
+          { method: "DELETE" },
+        )
+      ).status,
+      204,
+    );
+    const first = await (
+      await storage.dispatchFetch("http://wbo.storage/catalog")
+    ).json();
+    assert.equal(first.names.length, 100);
+    assert.equal(first.names.includes("private-050"), false);
+    assert.equal(first.nextCursor, "private-100");
+    const second = await (
+      await storage.dispatchFetch(
+        `http://wbo.storage/catalog?after=${first.nextCursor}`,
+      )
+    ).json();
+    assert.deepEqual(second, {
+      names: ["private-101", "saved-legacy"],
+      nextCursor: null,
+    });
+    const search = await (
+      await storage.dispatchFetch("http://wbo.storage/catalog?q=PRIVATE-10")
+    ).json();
+    assert.deepEqual(search.names, ["private-100", "private-101"]);
+    assert.deepEqual(
+      (
+        await (
+          await storage.dispatchFetch("http://wbo.storage/catalog?q=%25")
+        ).json()
+      ).names,
+      [],
+    );
+    await storage.dispose();
+    storage = await createStorage(dir);
+    const restored = await (
+      await storage.dispatchFetch("http://wbo.storage/catalog?q=saved")
+    ).json();
+    assert.deepEqual(restored.names, ["saved-legacy"]);
   } finally {
     await storage.dispose();
     await rm(dir, { recursive: true, force: true });
