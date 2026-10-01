@@ -244,6 +244,7 @@ export class PresenceModule {
       chatToggle.dataset.chatBound !== "true"
     ) {
       chatToggle.dataset.chatBound = "true";
+      chatToggle.disabled = false;
       let loading = false;
       let lastTouchActivation = -Infinity;
       /** @type {{id: number, x: number, y: number} | null} */
@@ -270,7 +271,12 @@ export class PresenceModule {
           chatToggle.removeAttribute("aria-busy");
         }
       };
+      chatToggle.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ")
+          lastTouchActivation = -Infinity;
+      });
       chatToggle.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse") lastTouchActivation = -Infinity;
         if (
           event.isPrimary &&
           event.pointerType !== "mouse" &&
@@ -301,7 +307,7 @@ export class PresenceModule {
         void activate();
       });
       chatToggle.addEventListener("click", (event) => {
-        if (event.detail !== 0 && event.timeStamp - lastTouchActivation < 800) {
+        if (event.timeStamp - lastTouchActivation < 800) {
           event.preventDefault();
           return;
         }

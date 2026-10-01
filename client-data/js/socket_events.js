@@ -4,6 +4,8 @@ export const SocketEvents = Object.freeze({
   BOARD_DELETED: "board_deleted",
   CHAT_HISTORY: "chat_history",
   CHAT_SEND: "chat_send",
+  CHAT_DELETE: "chat_delete",
+  CHAT_DELETED: "chat_deleted",
   CHAT_MESSAGE: "chat_message",
   BROADCAST: "broadcast",
   CONNECT: "connect",

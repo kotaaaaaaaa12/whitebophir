@@ -9,11 +9,13 @@ import { SocketEvents } from "../../client-data/js/socket_events.js";
 import {
   readChatHistory,
   saveChatMessage,
+  deleteChatMessage,
 } from "../persistence/chat_store.mjs";
 import {
   assertBoardActive,
   isBoardDeleting,
 } from "../persistence/board_lifecycle.mjs";
+import { SerialTaskQueue } from "../board/serial_task_queue.mjs";
 import { capToMaxSize, pruneStaleEntries } from "./bounded_state_map.mjs";
 import { canAccessBoard, canReportOnBoard, canBanOnBoard } from "./policy.mjs";
 import { getBoardUser } from "./presence.mjs";
@@ -25,12 +27,34 @@ import { getSocketHeaderValue, getSocketUserSecret } from "./request.mjs";
 import { isTurnstileValidationActive } from "./turnstile.mjs";
 
 /** @import { AppSocket, ServerConfig } from "../../types/server-runtime.d.ts" */
-/** @import { ChatSendResult, ChatHistoryResult } from "../../client-data/js/chat_protocol.js" */
+/** @import { ChatSendResult, ChatHistoryResult, ChatDeleteResult } from "../../client-data/js/chat_protocol.js" */
 /** @typedef {{windowStart: number, count: number, lastSeen: number}} ChatRateState */
 /** @type {WeakMap<ServerConfig, Map<string, ChatRateState>>} */
 const rateMaps = new WeakMap();
 /** @type {WeakMap<AppSocket, () => number | null>} */
 const administratorSessions = new WeakMap();
+/** @type {WeakMap<ServerConfig, Map<string, {queue: SerialTaskQueue, count: number}>>} */
+const mutations = new WeakMap();
+
+/** @template T @param {ServerConfig} config @param {string} board @param {() => Promise<T>} task */
+async function orderedMutation(config, board, task) {
+  let rooms = mutations.get(config);
+  if (!rooms) {
+    rooms = new Map();
+    mutations.set(config, rooms);
+  }
+  let state = rooms.get(board);
+  if (!state) {
+    state = { queue: new SerialTaskQueue(), count: 0 };
+    rooms.set(board, state);
+  }
+  state.count++;
+  try {
+    return await state.queue.runExclusive(task);
+  } finally {
+    if (--state.count === 0) rooms.delete(board);
+  }
+}
 
 /** @param {AppSocket} socket @param {ServerConfig} config */
 function isAdministrator(socket, config) {
@@ -100,7 +124,7 @@ export async function handleChatHistory(socket, board, config, payload, ack) {
     );
     if (!viewer(socket, board, config) || isBoardDeleting(board, config))
       return ack({ ok: false, error: "chat_unavailable" });
-    ack({ ok: true, ...page });
+    ack({ ok: true, ...page, canDelete: isAdministrator(socket, config) });
   } catch (error) {
     console.error("chat.history_failed", error);
     ack({ ok: false, error: "chat_history_failed" });
@@ -129,25 +153,65 @@ export async function handleChatSend(socket, board, config, payload, ack) {
       !isTurnstileValidationActive(socket, Date.now())
     )
       return ack({ ok: false, error: "chat_verification_required" });
-    const message = await saveChatMessage(board, config, {
-      author: createHash("sha256")
-        .update(user.userSecret || user.ip)
-        .digest("hex"),
-      clientId: input.clientId,
-      name: `${isAdministrator(socket, config) ? "🌸" : ""}${user.name}`,
-      text,
-      sentAt: Date.now(),
+    const clientId = input.clientId;
+    await orderedMutation(config, board, async () => {
+      if (
+        !viewer(socket, board, config) ||
+        !canReportOnBoard(config, board, socket)
+      )
+        return ack({ ok: false, error: "chat_unavailable" });
+      const message = await saveChatMessage(board, config, {
+        author: createHash("sha256")
+          .update(user.userSecret || user.ip)
+          .digest("hex"),
+        clientId,
+        name: `${isAdministrator(socket, config) ? "🌸" : ""}${user.name}`,
+        text,
+        sentAt: Date.now(),
+      });
+      await assertBoardActive(board, config);
+      if (!viewer(socket, board, config))
+        return ack({ ok: false, error: "chat_unavailable" });
+      // Broadcast only after durable storage acknowledges the message. A retry of
+      // the same nonce returns the same ID; receivers deduplicate it by that ID.
+      socket.emit(SocketEvents.CHAT_MESSAGE, message);
+      socket.broadcast.to(board).emit(SocketEvents.CHAT_MESSAGE, message);
+      ack({ ok: true, message });
     });
-    await assertBoardActive(board, config);
-    if (!viewer(socket, board, config))
-      return ack({ ok: false, error: "chat_unavailable" });
-    // Broadcast only after durable storage acknowledges the message. A retry of
-    // the same nonce returns the same ID; receivers deduplicate it by that ID.
-    socket.emit(SocketEvents.CHAT_MESSAGE, message);
-    socket.broadcast.to(board).emit(SocketEvents.CHAT_MESSAGE, message);
-    ack({ ok: true, message });
   } catch (error) {
     console.error("chat.send_failed", error);
     ack({ ok: false, error: "chat_send_failed" });
+  }
+}
+
+/** @param {AppSocket} socket @param {string} board @param {ServerConfig} config @param {unknown} payload @param {(result: ChatDeleteResult) => void} ack */
+export async function handleChatDelete(socket, board, config, payload, ack) {
+  if (typeof ack !== "function") return;
+  try {
+    const user = viewer(socket, board, config);
+    if (!user || !isAdministrator(socket, config))
+      return ack({ ok: false, error: "chat_delete_forbidden" });
+    if (!payload || typeof payload !== "object" || Array.isArray(payload))
+      return ack({ ok: false, error: "chat_delete_failed" });
+    const id = /** @type {{id?: unknown}} */ (payload).id;
+    if (!validChatCursor(id))
+      return ack({ ok: false, error: "chat_delete_failed" });
+    if (!rateAllowed(config, `delete:${board}:${user.ip}`, 20))
+      return ack({ ok: false, error: "chat_rate_limited" });
+    await orderedMutation(config, board, async () => {
+      if (!viewer(socket, board, config) || !isAdministrator(socket, config))
+        return ack({ ok: false, error: "chat_delete_forbidden" });
+      if (!(await deleteChatMessage(board, config, id)))
+        return ack({ ok: false, error: "chat_delete_failed" });
+      await assertBoardActive(board, config);
+      if (!viewer(socket, board, config))
+        return ack({ ok: false, error: "chat_unavailable" });
+      socket.emit(SocketEvents.CHAT_DELETED, { id });
+      socket.broadcast.to(board).emit(SocketEvents.CHAT_DELETED, { id });
+      ack({ ok: true, id });
+    });
+  } catch (error) {
+    console.error("chat.delete_failed", error);
+    ack({ ok: false, error: "chat_delete_failed" });
   }
 }

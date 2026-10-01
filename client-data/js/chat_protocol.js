@@ -6,7 +6,8 @@ const FORBIDDEN_CHARACTERS = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 /** @typedef {{messages: ChatMessage[], nextBefore: number | null}} ChatPage */
 /** @typedef {{author: string, clientId: string, name: string, text: string, sentAt: number}} ChatInput */
 /** @typedef {{ok: true, message: ChatMessage} | {ok: false, error: string}} ChatSendResult */
-/** @typedef {({ok: true} & ChatPage) | {ok: false, error: string}} ChatHistoryResult */
+/** @typedef {{ok: true, id: number} | {ok: false, error: string}} ChatDeleteResult */
+/** @typedef {({ok: true, canDelete?: boolean} & ChatPage) | {ok: false, error: string}} ChatHistoryResult */
 
 /** @param {unknown} value @returns {string | null} */
 export function normalizeChatText(value) {

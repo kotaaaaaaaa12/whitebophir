@@ -150,7 +150,11 @@
     "chat_verification_required": "أكمل التحقق على اللوحة قبل الإرسال.",
     "chat_history_failed": "تعذر تحميل الرسائل. أغلق الدردشة ثم افتحها مجددًا.",
     "chat_send_failed": "تعذر إرسال الرسالة. ما زال النص في الحقل؛ حاول مجددًا.",
-    "chat_sending": "جارٍ الإرسال…"
+    "chat_sending": "جارٍ الإرسال…",
+    "chat_delete": "حذف الرسالة",
+    "chat_delete_confirm": "هل تريد حذف هذه الرسالة للجميع؟ لا يمكن التراجع عن ذلك.",
+    "chat_delete_failed": "تعذّر حذف الرسالة. حاول مرة أخرى.",
+    "chat_delete_forbidden": "يجب تسجيل الدخول كمسؤول لحذف رسائل الدردشة."
   },
   "be": {
     "white-out": "Замазка",
@@ -303,7 +307,11 @@
     "chat_verification_required": "Перад адпраўкай прайдзіце праверку на дошцы.",
     "chat_history_failed": "Не ўдалося загрузіць паведамленні. Закрыйце і зноў адкрыйце чат.",
     "chat_send_failed": "Не ўдалося адправіць паведамленне. Ваш тэкст застаўся ў полі; паспрабуйце яшчэ раз.",
-    "chat_sending": "Адпраўка…"
+    "chat_sending": "Адпраўка…",
+    "chat_delete": "Выдаліць паведамленне",
+    "chat_delete_confirm": "Выдаліць гэта паведамленне для ўсіх? Гэта нельга адмяніць.",
+    "chat_delete_failed": "Не ўдалося выдаліць паведамленне. Паспрабуйце яшчэ раз.",
+    "chat_delete_forbidden": "Для выдалення паведамленняў чата неабходна ўвайсці як адміністратар."
   },
   "ca": {
     "white-out": "Corrector blanc",
@@ -456,7 +464,11 @@
     "chat_verification_required": "Completa la verificació de la pissarra abans d’enviar.",
     "chat_history_failed": "No s’han pogut carregar els missatges. Tanca i torna a obrir el xat.",
     "chat_send_failed": "No s’ha pogut enviar el missatge. El text es conserva; torna-ho a provar.",
-    "chat_sending": "S’està enviant…"
+    "chat_sending": "S’està enviant…",
+    "chat_delete": "Suprimeix el missatge",
+    "chat_delete_confirm": "Vols suprimir aquest missatge per a tothom? No es pot desfer.",
+    "chat_delete_failed": "No s’ha pogut suprimir el missatge. Torna-ho a provar.",
+    "chat_delete_forbidden": "Cal iniciar sessió com a administrador per suprimir missatges del xat."
   },
   "de": {
     "board_name_placeholder": "Name des Whiteboards…",
@@ -609,7 +621,11 @@
     "chat_verification_required": "Schließe vor dem Senden die Überprüfung des Whiteboards ab.",
     "chat_history_failed": "Die Nachrichten konnten nicht geladen werden. Schließe und öffne den Chat erneut.",
     "chat_send_failed": "Die Nachricht konnte nicht gesendet werden. Dein Text bleibt erhalten; versuche es erneut.",
-    "chat_sending": "Wird gesendet…"
+    "chat_sending": "Wird gesendet…",
+    "chat_delete": "Nachricht löschen",
+    "chat_delete_confirm": "Diese Nachricht für alle löschen? Dies kann nicht rückgängig gemacht werden.",
+    "chat_delete_failed": "Die Nachricht konnte nicht gelöscht werden. Versuche es erneut.",
+    "chat_delete_forbidden": "Zum Löschen von Chatnachrichten ist eine Administratoranmeldung erforderlich."
   },
   "en": {
     "white-out": "White-out",
@@ -762,7 +778,11 @@
     "chat_verification_required": "Complete the board verification before sending.",
     "chat_history_failed": "Messages could not be loaded. Close and reopen the chat to try again.",
     "chat_send_failed": "The message could not be sent. Your text is still here; try again.",
-    "chat_sending": "Sending…"
+    "chat_sending": "Sending…",
+    "chat_delete": "Delete message",
+    "chat_delete_confirm": "Delete this message for everyone? This cannot be undone.",
+    "chat_delete_failed": "The message could not be deleted. Try again.",
+    "chat_delete_forbidden": "Administrator sign-in is required to delete chat messages."
   },
   "es": {
     "board_name_placeholder": "Nombre de la pizarra …",
@@ -915,7 +935,11 @@
     "chat_verification_required": "Completa la verificación de la pizarra antes de enviar.",
     "chat_history_failed": "No se han podido cargar los mensajes. Cierra y vuelve a abrir el chat.",
     "chat_send_failed": "No se ha podido enviar el mensaje. Tu texto sigue aquí; inténtalo de nuevo.",
-    "chat_sending": "Enviando…"
+    "chat_sending": "Enviando…",
+    "chat_delete": "Eliminar mensaje",
+    "chat_delete_confirm": "¿Eliminar este mensaje para todos? No se puede deshacer.",
+    "chat_delete_failed": "No se pudo eliminar el mensaje. Inténtalo de nuevo.",
+    "chat_delete_forbidden": "Debes iniciar sesión como administrador para eliminar mensajes del chat."
   },
   "fr": {
     "board_name_placeholder": "Nom du tableau…",
@@ -1067,7 +1091,11 @@
     "chat_verification_required": "Terminez la vérification du tableau avant d’envoyer.",
     "chat_history_failed": "Impossible de charger les messages. Fermez puis rouvrez la discussion pour réessayer.",
     "chat_send_failed": "Le message n’a pas pu être envoyé. Votre texte est conservé ; réessayez.",
-    "chat_sending": "Envoi…"
+    "chat_sending": "Envoi…",
+    "chat_delete": "Supprimer le message",
+    "chat_delete_confirm": "Supprimer ce message pour tout le monde ? Cette action est irréversible.",
+    "chat_delete_failed": "Le message n’a pas pu être supprimé. Réessayez.",
+    "chat_delete_forbidden": "Une connexion administrateur est requise pour supprimer des messages du chat."
   },
   "hu": {
     "white-out": "Lefedő",
@@ -1220,7 +1248,11 @@
     "chat_verification_required": "Küldés előtt végezd el a tábla ellenőrzését.",
     "chat_history_failed": "Az üzeneteket nem sikerült betölteni. Zárd be és nyisd meg újra a csevegést.",
     "chat_send_failed": "Az üzenetet nem sikerült elküldeni. A szöveged megmaradt; próbáld újra.",
-    "chat_sending": "Küldés…"
+    "chat_sending": "Küldés…",
+    "chat_delete": "Üzenet törlése",
+    "chat_delete_confirm": "Törlöd ezt az üzenetet mindenki számára? Ez nem vonható vissza.",
+    "chat_delete_failed": "Az üzenetet nem sikerült törölni. Próbáld újra.",
+    "chat_delete_forbidden": "A csevegés üzeneteinek törléséhez rendszergazdaként kell bejelentkezni."
   },
   "id": {
     "white-out": "Cairan koreksi",
@@ -1373,7 +1405,11 @@
     "chat_verification_required": "Selesaikan verifikasi papan sebelum mengirim.",
     "chat_history_failed": "Pesan tidak dapat dimuat. Tutup dan buka kembali chat untuk mencoba lagi.",
     "chat_send_failed": "Pesan tidak dapat dikirim. Teks Anda masih ada di sini; coba lagi.",
-    "chat_sending": "Mengirim…"
+    "chat_sending": "Mengirim…",
+    "chat_delete": "Hapus pesan",
+    "chat_delete_confirm": "Hapus pesan ini untuk semua orang? Tindakan ini tidak dapat dibatalkan.",
+    "chat_delete_failed": "Pesan tidak dapat dihapus. Coba lagi.",
+    "chat_delete_forbidden": "Masuk sebagai administrator untuk menghapus pesan obrolan."
   },
   "it": {
     "board_name_placeholder": "Nome della lavagna…",
@@ -1526,7 +1562,11 @@
     "chat_verification_required": "Completa la verifica della lavagna prima di inviare.",
     "chat_history_failed": "Impossibile caricare i messaggi. Chiudi e riapri la chat per riprovare.",
     "chat_send_failed": "Impossibile inviare il messaggio. Il testo è ancora qui; riprova.",
-    "chat_sending": "Invio…"
+    "chat_sending": "Invio…",
+    "chat_delete": "Elimina messaggio",
+    "chat_delete_confirm": "Eliminare questo messaggio per tutti? L’operazione non può essere annullata.",
+    "chat_delete_failed": "Impossibile eliminare il messaggio. Riprova.",
+    "chat_delete_forbidden": "Per eliminare i messaggi della chat devi accedere come amministratore."
   },
   "ja": {
     "board_name_placeholder": "ボードの名前",
@@ -1679,7 +1719,11 @@
     "chat_verification_required": "送信するには、先にボードの認証を完了してください。",
     "chat_history_failed": "メッセージを読み込めませんでした。チャットを閉じて開き直してください。",
     "chat_send_failed": "送信できませんでした。入力した文章は残っています。もう一度お試しください。",
-    "chat_sending": "送信しています…"
+    "chat_sending": "送信しています…",
+    "chat_delete": "メッセージを削除",
+    "chat_delete_confirm": "このメッセージを全員の履歴から削除しますか？元に戻せません。",
+    "chat_delete_failed": "メッセージを削除できませんでした。もう一度お試しください。",
+    "chat_delete_forbidden": "チャットの削除には管理者ログインが必要です。"
   },
   "my": {
     "board_name_placeholder": "ဝှိုက်ဘုတ်အမည် ... ",
@@ -1832,7 +1876,11 @@
     "chat_verification_required": "စာမပို့မီ ဘုတ်ပေါ်တွင် အတည်ပြုခြင်းကို ပြီးအောင်လုပ်ပါ။",
     "chat_history_failed": "စာများကို မတင်နိုင်ပါ။ စကားပြောခန်းကို ပိတ်ပြီး ပြန်ဖွင့်ပါ။",
     "chat_send_failed": "စာကို မပို့နိုင်ပါ။ ရေးထားသောစာသည် အကွက်ထဲတွင် ရှိနေဆဲဖြစ်သည်။ ထပ်ကြိုးစားပါ။",
-    "chat_sending": "ပို့နေသည်…"
+    "chat_sending": "ပို့နေသည်…",
+    "chat_delete": "စာတိုကို ဖျက်မည်",
+    "chat_delete_confirm": "ဤစာတိုကို လူတိုင်းအတွက် ဖျက်မလား။ ပြန်ယူ၍ မရပါ။",
+    "chat_delete_failed": "စာတိုကို မဖျက်နိုင်ပါ။ ထပ်စမ်းကြည့်ပါ။",
+    "chat_delete_forbidden": "စကားပြောစာတိုများကို ဖျက်ရန် စီမံခန့်ခွဲသူအဖြစ် ဝင်ရောက်ရန် လိုအပ်သည်။"
   },
   "pt": {
     "white-out": "Branquejar",
@@ -1985,7 +2033,11 @@
     "chat_verification_required": "Conclua a verificação do quadro antes de enviar.",
     "chat_history_failed": "Não foi possível carregar as mensagens. Feche e abra o chat novamente.",
     "chat_send_failed": "Não foi possível enviar a mensagem. Seu texto continua aqui; tente novamente.",
-    "chat_sending": "Enviando…"
+    "chat_sending": "Enviando…",
+    "chat_delete": "Excluir mensagem",
+    "chat_delete_confirm": "Excluir esta mensagem para todos? Isso não pode ser desfeito.",
+    "chat_delete_failed": "Não foi possível excluir a mensagem. Tente novamente.",
+    "chat_delete_forbidden": "É necessário entrar como administrador para excluir mensagens do bate-papo."
   },
   "ru": {
     "board_name_placeholder": "Название доски",
@@ -2138,7 +2190,11 @@
     "chat_verification_required": "Перед отправкой пройдите проверку на доске.",
     "chat_history_failed": "Не удалось загрузить сообщения. Закройте и снова откройте чат.",
     "chat_send_failed": "Не удалось отправить сообщение. Ваш текст сохранён в поле; попробуйте ещё раз.",
-    "chat_sending": "Отправка…"
+    "chat_sending": "Отправка…",
+    "chat_delete": "Удалить сообщение",
+    "chat_delete_confirm": "Удалить это сообщение для всех? Это действие нельзя отменить.",
+    "chat_delete_failed": "Не удалось удалить сообщение. Попробуйте ещё раз.",
+    "chat_delete_forbidden": "Для удаления сообщений чата необходимо войти как администратор."
   },
   "sw": {
     "board_name_placeholder": "Jina la ubao mweupe ...",
@@ -2291,7 +2347,11 @@
     "chat_verification_required": "Kamilisha uthibitishaji wa ubao kabla ya kutuma.",
     "chat_history_failed": "Ujumbe haukuweza kupakiwa. Funga gumzo kisha ulifungue tena.",
     "chat_send_failed": "Ujumbe haukuweza kutumwa. Maandishi yako bado yapo hapa; jaribu tena.",
-    "chat_sending": "Ujumbe unatumwa…"
+    "chat_sending": "Ujumbe unatumwa…",
+    "chat_delete": "Futa ujumbe",
+    "chat_delete_confirm": "Ungependa kufuta ujumbe huu kwa kila mtu? Hili haliwezi kutenduliwa.",
+    "chat_delete_failed": "Ujumbe haukuweza kufutwa. Jaribu tena.",
+    "chat_delete_forbidden": "Ingia kama msimamizi ili kufuta ujumbe wa mazungumzo."
   },
   "th": {
     "board_name_placeholder": "ชื่อไวท์บอร์ด ...",
@@ -2444,7 +2504,11 @@
     "chat_verification_required": "ยืนยันตัวตนบนกระดานให้เสร็จก่อนส่งข้อความ",
     "chat_history_failed": "ไม่สามารถโหลดข้อความได้ ปิดแชตแล้วเปิดใหม่เพื่อลองอีกครั้ง",
     "chat_send_failed": "ไม่สามารถส่งข้อความได้ ข้อความยังอยู่ในช่องพิมพ์ โปรดลองอีกครั้ง",
-    "chat_sending": "กำลังส่ง…"
+    "chat_sending": "กำลังส่ง…",
+    "chat_delete": "ลบข้อความ",
+    "chat_delete_confirm": "ลบข้อความนี้สำหรับทุกคนหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
+    "chat_delete_failed": "ไม่สามารถลบข้อความได้ โปรดลองอีกครั้ง",
+    "chat_delete_forbidden": "ต้องเข้าสู่ระบบในฐานะผู้ดูแลเพื่อ ลบข้อความแชต"
   },
   "uk": {
     "white-out": "Коректор",
@@ -2597,7 +2661,11 @@
     "chat_verification_required": "Перед надсиланням пройдіть перевірку на дошці.",
     "chat_history_failed": "Не вдалося завантажити повідомлення. Закрийте й знову відкрийте чат.",
     "chat_send_failed": "Не вдалося надіслати повідомлення. Ваш текст залишився в полі; спробуйте ще раз.",
-    "chat_sending": "Надсилання…"
+    "chat_sending": "Надсилання…",
+    "chat_delete": "Видалити повідомлення",
+    "chat_delete_confirm": "Видалити це повідомлення для всіх? Цю дію не можна скасувати.",
+    "chat_delete_failed": "Не вдалося видалити повідомлення. Спробуйте ще раз.",
+    "chat_delete_forbidden": "Для видалення повідомлень чату потрібно ввійти як адміністратор."
   },
   "vi": {
     "white-out": "Bút xóa",
@@ -2750,7 +2818,11 @@
     "chat_verification_required": "Hoàn thành xác minh trên bảng trước khi gửi.",
     "chat_history_failed": "Không thể tải tin nhắn. Đóng rồi mở lại trò chuyện để thử lại.",
     "chat_send_failed": "Không thể gửi tin nhắn. Nội dung vẫn còn trong ô nhập; vui lòng thử lại.",
-    "chat_sending": "Đang gửi…"
+    "chat_sending": "Đang gửi…",
+    "chat_delete": "Xóa tin nhắn",
+    "chat_delete_confirm": "Xóa tin nhắn này cho tất cả mọi người? Không thể hoàn tác.",
+    "chat_delete_failed": "Không thể xóa tin nhắn. Vui lòng thử lại.",
+    "chat_delete_forbidden": "Cần đăng nhập với quyền quản trị viên để xóa tin nhắn trò chuyện."
   },
   "zh-CN": {
     "board_name_placeholder": "白板名称",
@@ -2903,7 +2975,11 @@
     "chat_verification_required": "请先完成白板验证再发送消息。",
     "chat_history_failed": "无法加载消息。请关闭聊天后重新打开。",
     "chat_send_failed": "无法发送消息。输入的内容仍保留在此处，请重试。",
-    "chat_sending": "正在发送…"
+    "chat_sending": "正在发送…",
+    "chat_delete": "删除消息",
+    "chat_delete_confirm": "为所有人删除此消息？此操作无法撤销。",
+    "chat_delete_failed": "无法删除消息。请重试。",
+    "chat_delete_forbidden": "删除聊天消息需要管理员登录。"
   },
   "zh-TW": {
     "board_name_placeholder": "白板名稱",
@@ -3056,7 +3132,11 @@
     "chat_verification_required": "請先完成白板驗證再傳送訊息。",
     "chat_history_failed": "無法載入訊息。請關閉聊天後重新開啟。",
     "chat_send_failed": "無法傳送訊息。輸入的內容仍保留在此處，請重試。",
-    "chat_sending": "正在傳送…"
+    "chat_sending": "正在傳送…",
+    "chat_delete": "刪除訊息",
+    "chat_delete_confirm": "為所有人刪除此訊息？此操作無法復原。",
+    "chat_delete_failed": "無法刪除訊息。請重試。",
+    "chat_delete_forbidden": "刪除聊天訊息需要管理員登入。"
   },
   "pl": {
     "board_name_placeholder": "Nazwa tablicy",
@@ -3209,6 +3289,10 @@
     "chat_verification_required": "Przed wysłaniem ukończ weryfikację tablicy.",
     "chat_history_failed": "Nie udało się wczytać wiadomości. Zamknij i otwórz czat ponownie.",
     "chat_send_failed": "Nie udało się wysłać wiadomości. Twój tekst pozostał w polu; spróbuj ponownie.",
-    "chat_sending": "Wysyłanie…"
+    "chat_sending": "Wysyłanie…",
+    "chat_delete": "Usuń wiadomość",
+    "chat_delete_confirm": "Usunąć tę wiadomość dla wszystkich? Tej operacji nie można cofnąć.",
+    "chat_delete_failed": "Nie udało się usunąć wiadomości. Spróbuj ponownie.",
+    "chat_delete_forbidden": "Usuwanie wiadomości czatu wymaga zalogowania jako administrator."
   }
 }

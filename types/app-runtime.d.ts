@@ -386,6 +386,7 @@ export type UserReportedPayload = {
 };
 
 export type ClientSocketIncomingEventMap = {
+  [SocketEvents.CHAT_DELETED]: { id: number };
   [SocketEvents.CHAT_MESSAGE]: import("../client-data/js/chat_protocol.js").ChatMessage;
   [SocketEvents.BOARD_DELETED]: { boardName: string };
   [SocketEvents.BOARDSTATE]: AppBoardState;
@@ -439,6 +440,12 @@ export type TurnstileFailureAck = {
 export type TurnstileAck = TurnstileSuccessAck | TurnstileFailureAck;
 
 export type ClientSocketOutgoingEventArgs = {
+  [SocketEvents.CHAT_DELETE]: [
+    payload: { id: number },
+    ack: (
+      result: import("../client-data/js/chat_protocol.js").ChatDeleteResult,
+    ) => void,
+  ];
   [SocketEvents.CHAT_SEND]: [
     payload: { clientId: string; text: string },
     ack: (

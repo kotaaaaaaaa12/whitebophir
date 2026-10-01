@@ -776,3 +776,98 @@ test("chat history survives storage restarts, isolates boards, paginates without
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("chat message deletion survives restart, removes content, is scoped by board and prevents delayed retries from resurrecting it", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wbo-chat-delete-"));
+  let storage = await createStorage(dir);
+  const input = {
+    author: "a".repeat(64),
+    clientId: randomUUID(),
+    name: "Peer",
+    text: "remove this body",
+    sentAt: Date.now(),
+  };
+  const post = (board, value) =>
+    storage.dispatchFetch(`http://wbo.storage/chat/${board}`, {
+      method: "POST",
+      body: JSON.stringify(value),
+    });
+  const remove = (board, id) =>
+    storage.dispatchFetch(`http://wbo.storage/chat/${board}?id=${id}`, {
+      method: "DELETE",
+    });
+  try {
+    const message = await (await post("chat-delete-a", input)).json();
+    const other = await (
+      await post("chat-delete-b", { ...input, text: "keep" })
+    ).json();
+    assert.equal(await (await remove("chat-delete-a", other.id)).json(), false);
+    assert.equal((await remove("chat-delete-a", "bad")).status, 400);
+    let finish;
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{"));
+        finish = () => {
+          controller.enqueue(
+            new TextEncoder().encode(JSON.stringify(input).slice(1)),
+          );
+          controller.close();
+        };
+      },
+    });
+    const delayed = storage.dispatchFetch(
+      "http://wbo.storage/chat/chat-delete-a",
+      {
+        method: "POST",
+        body,
+        duplex: "half",
+        headers: { "x-test-delayed-body": "1" },
+      },
+    );
+    await storage.dispatchFetch("http://wbo.storage/__test/body-started", {
+      signal: AbortSignal.timeout(5000),
+    });
+    assert.equal(
+      await (await remove("chat-delete-a", message.id)).json(),
+      true,
+    );
+    finish();
+    assert.equal((await delayed).status, 409);
+    assert.equal(
+      await (await remove("chat-delete-a", message.id)).json(),
+      true,
+    );
+    await storage.dispose();
+    storage = await createStorage(dir);
+    assert.equal((await post("chat-delete-a", input)).status, 409);
+    assert.equal(
+      (
+        await (
+          await storage.dispatchFetch("http://wbo.storage/chat/chat-delete-a")
+        ).json()
+      ).messages.length,
+      0,
+    );
+    assert.equal(
+      (
+        await (
+          await storage.dispatchFetch("http://wbo.storage/chat/chat-delete-b")
+        ).json()
+      ).messages[0].text,
+      "keep",
+    );
+    assert.equal(
+      (
+        await storage.dispatchFetch(
+          "http://wbo.storage/lifecycle/chat-delete-a",
+          { method: "DELETE" },
+        )
+      ).status,
+      204,
+    );
+    assert.equal((await remove("chat-delete-a", message.id)).status, 410);
+  } finally {
+    await storage.dispose();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

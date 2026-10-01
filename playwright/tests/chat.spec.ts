@@ -212,8 +212,22 @@ test("a cold touch activation opens once despite extra taps and touch needs no c
     await route.continue();
   });
   try {
-    await boardPage.gotoBoard("chat-cold-touch");
+    let releaseBoot = () => {};
+    const bootGate = new Promise<void>((resolve) => {
+      releaseBoot = resolve;
+    });
+    await page.route("**/js/board.js", async (route) => {
+      await bootGate;
+      await route.continue();
+    });
+    try {
+      await boardPage.gotoBoardShell("chat-cold-touch");
+      await expect(page.locator("#boardChatToggle")).toBeDisabled();
+    } finally {
+      releaseBoot();
+    }
     await boardPage.waitForSocketConnected();
+    await expect(page.locator("#boardChatToggle")).toBeEnabled();
     const button = page.locator("#boardChatToggle");
     await button.tap();
     await started;
@@ -226,7 +240,7 @@ test("a cold touch activation opens once despite extra taps and touch needs no c
     await expect(panel).toHaveCount(1);
     await button.tap();
     await expect(panel).toBeHidden();
-    // A completed touch without click must still open; its delayed click cannot close.
+    // A completed touch must still open; even a zero-detail compatibility click cannot close.
     await button.evaluate((node) => {
       for (const type of ["pointerdown", "pointerup"])
         node.dispatchEvent(
@@ -242,7 +256,7 @@ test("a cold touch activation opens once despite extra taps and touch needs no c
           }),
         );
       node.dispatchEvent(
-        new MouseEvent("click", { detail: 1, bubbles: true, cancelable: true }),
+        new MouseEvent("click", { detail: 0, bubbles: true, cancelable: true }),
       );
     });
     await expect(panel).toBeVisible();
@@ -347,6 +361,102 @@ adminChatTest(
         "🌸こた",
         "こた",
       ]);
+    } finally {
+      await peerContext.close();
+    }
+  },
+);
+
+adminChatTest(
+  "only administrators see the right-side trash control and deletion clears peers, stale history replies and persisted reloads",
+  async ({ boardPage, page, browser, server }, testInfo) => {
+    await boardPage.gotoBoard("chat-delete-browser");
+    await boardPage.waitForSocketConnected();
+    const peerContext = await browser.newContext();
+    try {
+      const peerPage = await peerContext.newPage();
+      const peer = createBoardPage(peerPage, server);
+      await peer.gotoBoard("chat-delete-browser");
+      await peer.waitForSocketConnected();
+      await peerPage.locator("#boardChatToggle").click();
+      await peerPage
+        .locator("#boardChatInput")
+        .fill("a peer message to remove");
+      await peerPage.locator("#boardChatInput").press("Enter");
+      await expect(peerPage.locator("#boardChatPanel li")).toHaveCount(1);
+      await expect(peerPage.locator(".board-chat-delete")).toHaveCount(0);
+      const login = await page.request.post(`${server.serverUrl}/api/admin`, {
+        headers: { "x-wbo-admin": "1" },
+        data: { password: "chat-browser-password" },
+      });
+      expect(login.status()).toBe(200);
+      await page.reload();
+      await boardPage.waitForSocketConnected();
+      await page.locator("#boardChatToggle").tap();
+      const trash = page.locator(".board-chat-delete");
+      await expect(trash).toBeVisible();
+      expect(
+        await page
+          .locator("#boardChatPanel li")
+          .evaluate((node) => parseFloat(getComputedStyle(node).paddingRight)),
+      ).toBeGreaterThanOrEqual(32);
+      const row = await page.locator("#boardChatPanel li").boundingBox();
+      const bounds = await trash.boundingBox();
+      if (!row || !bounds) throw new Error("Message control missing");
+      expect(bounds.x + bounds.width).toBeGreaterThan(row.x + row.width - 10);
+      await page.screenshot({ path: testInfo.outputPath("trash.png") });
+      await trash.tap();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toContainText("a peer message to remove");
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).tap();
+      await expect(page.locator("#boardChatPanel")).toBeVisible();
+      await expect(page.locator("#boardChatPanel li")).toHaveCount(1);
+      // Hold an old history reply while real deletion is broadcast to this peer.
+      await peerPage.reload();
+      await peer.waitForSocketConnected();
+      await peerPage.evaluate(() => {
+        const socket = window.WBOApp.connection.socket;
+        if (!socket) throw new Error("No socket");
+        const emit = socket.emit.bind(socket);
+        socket.emit = ((event: string, ...args: unknown[]) => {
+          if (event === "chat_history") {
+            const ack = args[1] as (value: unknown) => void;
+            return emit(event, args[0], (value: unknown) => {
+              document.body.dataset.chatHistoryHeld = "true";
+              document.addEventListener(
+                "test:release-history",
+                () => ack(value),
+                { once: true },
+              );
+            });
+          }
+          return emit(event, ...args);
+        }) as typeof socket.emit;
+      });
+      await peerPage.locator("#boardChatToggle").click();
+      await expect(peerPage.locator("body")).toHaveAttribute(
+        "data-chat-history-held",
+        "true",
+      );
+      await trash.tap();
+      await dialog
+        .getByRole("button", { name: "Delete message", exact: true })
+        .tap();
+      await expect(page.locator("#boardChatPanel li")).toHaveCount(0);
+      await expect(
+        peerPage.locator("#boardChatPanel [role=status]"),
+      ).toContainText("No messages yet");
+      await peerPage.evaluate(() =>
+        document.dispatchEvent(new Event("test:release-history")),
+      );
+      await expect(peerPage.locator("#boardChatPanel li")).toHaveCount(0);
+      await peerPage.reload();
+      await peer.waitForSocketConnected();
+      await peerPage.locator("#boardChatToggle").click();
+      await expect(
+        peerPage.locator("#boardChatPanel [role=status]"),
+      ).toContainText("No messages yet");
+      await expect(peerPage.locator("#boardChatPanel li")).toHaveCount(0);
     } finally {
       await peerContext.close();
     }

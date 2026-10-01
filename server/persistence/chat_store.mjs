@@ -33,6 +33,9 @@ function withDatabase(name, config, operation) {
         author TEXT NOT NULL, client_id TEXT NOT NULL,
         name TEXT NOT NULL, text TEXT NOT NULL, sent_at INTEGER NOT NULL,
         UNIQUE(author, client_id)
+      ); CREATE TABLE IF NOT EXISTS deleted_messages (
+        id INTEGER PRIMARY KEY, author TEXT NOT NULL, client_id TEXT NOT NULL,
+        UNIQUE(author, client_id)
       );`);
     return operation(db);
   } finally {
@@ -89,6 +92,14 @@ export async function saveChatMessage(name, config, input) {
   }
   return withActiveLocalBoard(name, config, () =>
     withDatabase(name, config, (db) => {
+      if (
+        db
+          .prepare(
+            "SELECT id FROM deleted_messages WHERE author = ? AND client_id = ?",
+          )
+          .get(input.author, input.clientId)
+      )
+        throw new BoundaryError(409, "chat_message_deleted");
       db.prepare(
         "INSERT OR IGNORE INTO messages (author, client_id, name, text, sent_at) VALUES (?, ?, ?, ?, ?)",
       ).run(input.author, input.clientId, input.name, input.text, input.sentAt);
@@ -99,6 +110,38 @@ export async function saveChatMessage(name, config, input) {
           )
           .get(input.author, input.clientId)
       );
+    }),
+  );
+}
+
+/** @param {string} name @param {ServerConfig} config @param {number} id @returns {Promise<boolean>} */
+export async function deleteChatMessage(name, config, id) {
+  if (process.env.WBO_CLOUD_STORAGE_URL) {
+    await assertBoardActive(name, config);
+    return (
+      await storageRequest(`/chat/${encodeURIComponent(name)}?id=${id}`, {
+        method: "DELETE",
+      })
+    ).json();
+  }
+  return withActiveLocalBoard(name, config, () =>
+    withDatabase(name, config, (db) => {
+      if (db.prepare("SELECT id FROM deleted_messages WHERE id = ?").get(id))
+        return true;
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const removed = db
+          .prepare(
+            "INSERT INTO deleted_messages (id, author, client_id) SELECT id, author, client_id FROM messages WHERE id = ?",
+          )
+          .run(id);
+        db.prepare("DELETE FROM messages WHERE id = ?").run(id);
+        db.exec("COMMIT");
+        return Number(removed.changes) === 1;
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
     }),
   );
 }

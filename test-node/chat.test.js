@@ -248,7 +248,7 @@ test("all 21 board languages include every chat label and error", async () => {
   const keys = Object.keys(translations.en || {}).filter((key) =>
     key.startsWith("chat_"),
   );
-  assert.equal(keys.length, 14);
+  assert.equal(keys.length, 18);
   for (const [language, dictionary] of Object.entries(translations))
     for (const key of keys) {
       assert.ok(dictionary[key]?.trim(), `${language}: ${key}`);
@@ -323,6 +323,156 @@ test("chat prefixes only a live signed administrator name and preserves the sent
       assert.equal(
         page.messages.find((m) => m.id === signed.id)?.name,
         "🌸こた",
+      );
+    },
+  );
+});
+
+test("administrator chat deletion is board-scoped, durable, ordered and rejects normal/expired sessions and nonce resurrection", async () => {
+  const auth = await import("../server/auth/admin_session.mjs");
+  const {
+    readChatHistory,
+    saveChatMessage,
+    deleteChatMessage,
+    chatDatabasePath,
+  } = await import("../server/persistence/chat_store.mjs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const secret = "1234567890abcdef1234567890abcdef";
+  const config = {
+    AUTH_SECRET_KEY: "",
+    BOARD_ADMIN_KEY: "chat-deletion-test-key",
+  };
+  const token = auth.createAdminSession(secret, config);
+  await createSocketScenario(
+    { boardName: "chat-delete", config },
+    async (scenario) => {
+      const admin = await scenario.connect({
+        id: "admin-delete",
+        query: { displayName: "Admin" },
+        headers: {
+          cookie: `wbo-user-secret-v1=${secret}; ${auth.ADMIN_COOKIE_NAME}=${token}`,
+        },
+      });
+      const ordinary = await scenario.connect({
+        id: "ordinary-delete",
+        query: { displayName: "Peer" },
+        headers: {
+          cookie: "wbo-user-secret-v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+      });
+      /** @param {typeof admin} created @param {string} event @param {unknown} payload @returns {Promise<any>} */
+      async function invoke(created, event, payload) {
+        let result;
+        await scenario.invoke(
+          created,
+          event,
+          payload,
+          (/** @type {unknown} */ value) => {
+            result = value;
+          },
+        );
+        assert.ok(result);
+        return result;
+      }
+      const nonce = randomUUID();
+      const sent = await invoke(ordinary, "chat_send", {
+        text: "private message to delete",
+        clientId: nonce,
+      });
+      assert.equal(sent.ok, true);
+      assert.equal(
+        (await invoke(ordinary, "chat_history", {})).canDelete,
+        false,
+      );
+      assert.equal((await invoke(admin, "chat_history", {})).canDelete, true);
+      assert.equal(
+        (
+          await invoke(ordinary, "chat_delete", {
+            id: sent.message.id,
+            administrator: true,
+          })
+        ).error,
+        "chat_delete_forbidden",
+      );
+      for (const payload of [
+        null,
+        [],
+        {},
+        { id: -1 },
+        { id: "1" },
+        { id: 1.5 },
+      ])
+        assert.equal((await invoke(admin, "chat_delete", payload)).ok, false);
+      const results = await Promise.all([
+        invoke(admin, "chat_delete", {
+          id: sent.message.id,
+          board: "other-board",
+        }),
+        invoke(ordinary, "chat_send", {
+          text: "private message to delete",
+          clientId: nonce,
+        }),
+      ]);
+      assert.equal(results[0].ok, true);
+      assert.equal(results[1].ok, false);
+      assert.ok(
+        admin.broadcasted.some(
+          (frame) =>
+            frame.event === "chat_deleted" &&
+            frame.room === "chat-delete" &&
+            frame.payload.id === sent.message.id,
+        ),
+      );
+      assert.equal(
+        (await invoke(admin, "chat_delete", { id: sent.message.id })).ok,
+        true,
+      );
+      assert.equal(
+        (await invoke(admin, "chat_history", {})).messages.length,
+        0,
+      );
+      const effectiveConfig = scenario.sockets.__config;
+      const db = new DatabaseSync(
+        chatDatabasePath("chat-delete", effectiveConfig),
+      );
+      try {
+        assert.equal(
+          db
+            .prepare("SELECT * FROM messages WHERE id = ?")
+            .get(sent.message.id),
+          undefined,
+        );
+        assert.deepEqual(
+          Object.keys(
+            db
+              .prepare("SELECT * FROM deleted_messages WHERE id = ?")
+              .get(sent.message.id) || {},
+          ).sort(),
+          ["author", "client_id", "id"],
+        );
+      } finally {
+        db.close();
+      }
+      const kept = await saveChatMessage("other-board", effectiveConfig, {
+        author: "b".repeat(64),
+        clientId: randomUUID(),
+        name: "Other",
+        text: "keep",
+        sentAt: Date.now(),
+      });
+      assert.equal(
+        await deleteChatMessage("chat-delete", effectiveConfig, kept.id + 1000),
+        false,
+      );
+      assert.equal(
+        (await readChatHistory("other-board", effectiveConfig)).messages[0]
+          ?.text,
+        "keep",
+      );
+      auth.revokeAdminSession(token);
+      assert.equal(
+        (await invoke(admin, "chat_delete", { id: kept.id })).error,
+        "chat_delete_forbidden",
       );
     },
   );

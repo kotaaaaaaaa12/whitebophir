@@ -21,7 +21,11 @@ import {
   isBoardDeleting,
 } from "../persistence/board_lifecycle.mjs";
 import { resetBans } from "./bans.mjs";
-import { handleChatHistory, handleChatSend } from "./chat.mjs";
+import {
+  handleChatHistory,
+  handleChatSend,
+  handleChatDelete,
+} from "./chat.mjs";
 import {
   boardMutationTraceAttributes,
   handleBroadcastWriteMessage,
@@ -834,6 +838,9 @@ async function handleSocketConnection(socket, config) {
   await bootstrapSocketBoard(socket, replay, config);
   onSocketEvent(socket, SocketEvents.CHAT_HISTORY, (payload, ack) =>
     handleChatHistory(socket, boardName, config, payload, ack),
+  );
+  onSocketEvent(socket, SocketEvents.CHAT_DELETE, (payload, ack) =>
+    handleChatDelete(socket, boardName, config, payload, ack),
   );
   onSocketEvent(socket, SocketEvents.CHAT_SEND, (payload, ack) =>
     handleChatSend(socket, boardName, config, payload, ack),

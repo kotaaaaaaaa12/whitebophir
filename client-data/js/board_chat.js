@@ -7,7 +7,7 @@ import {
 import { SocketEvents } from "./socket_events.js";
 
 /** @import { AppToolsState, AppSocket } from "../../types/app-runtime" */
-/** @import { ChatMessage, ChatPage, ChatSendResult, ChatHistoryResult } from "./chat_protocol.js" */
+/** @import { ChatMessage, ChatPage, ChatSendResult, ChatHistoryResult, ChatDeleteResult } from "./chat_protocol.js" */
 
 const CHAT_ERRORS = new Set([
   "chat_unavailable",
@@ -16,6 +16,8 @@ const CHAT_ERRORS = new Set([
   "chat_verification_required",
   "chat_history_failed",
   "chat_send_failed",
+  "chat_delete_failed",
+  "chat_delete_forbidden",
 ]);
 
 /** @template T @param {AppSocket} socket @param {string} event @param {object} payload @returns {Promise<T>} */
@@ -57,6 +59,9 @@ export class BoardChat {
     this.loaded = false;
     this.loading = false;
     this.sending = false;
+    this.canDelete = false;
+    this.deletedIds = new Set();
+    this.pendingDeletes = new Set();
     this.nextBefore = /** @type {number | null} */ (null);
     this.pending = /** @type {{text: string, clientId: string} | null} */ (
       null
@@ -171,7 +176,11 @@ export class BoardChat {
         this.isOpen &&
         event.target instanceof Node &&
         !this.panel.contains(event.target) &&
-        !this.toggle.contains(event.target)
+        !this.toggle.contains(event.target) &&
+        !(
+          event.target instanceof Element &&
+          event.target.closest("dialog[open]")
+        )
       )
         this.close();
     });
@@ -238,6 +247,13 @@ export class BoardChat {
   attachSocket(socket) {
     if (this.boundSockets.has(socket)) return;
     this.boundSockets.add(socket);
+    socket.on(SocketEvents.CHAT_DELETED, (message) => {
+      if (
+        socket === this.getTools().connection.socket &&
+        validChatCursor(message?.id)
+      )
+        this.receiveDeleted(message.id);
+    });
     socket.on(SocketEvents.CHAT_MESSAGE, (message) => {
       if (
         socket === this.getTools().connection.socket &&
@@ -262,7 +278,8 @@ export class BoardChat {
 
   /** @param {ChatMessage} message */
   receive(message) {
-    if (this.messages.has(message.id)) return;
+    if (this.messages.has(message.id) || this.deletedIds.has(message.id))
+      return;
     const atBottom =
       this.list.scrollHeight - this.list.scrollTop - this.list.clientHeight <
       40;
@@ -271,6 +288,58 @@ export class BoardChat {
     if (this.status.textContent === this.getTools().i18n.t("chat_empty"))
       this.showStatus("");
     if (atBottom) this.list.scrollTop = this.list.scrollHeight;
+  }
+
+  /** @param {number} id */
+  receiveDeleted(id) {
+    this.deletedIds.add(id);
+    this.messages.delete(id);
+    this.render();
+    if (this.messages.size === 0) this.showStatus("chat_empty");
+  }
+
+  /** @param {ChatMessage} message */
+  async deleteMessage(message) {
+    if (!this.canDelete || this.pendingDeletes.has(message.id)) return;
+    this.pendingDeletes.add(message.id);
+    this.render();
+    const Tools = this.getTools();
+    try {
+      if (
+        !(await Tools.ui.confirm({
+          title: Tools.i18n.t("chat_delete"),
+          message: `${Tools.i18n.t("chat_delete_confirm")}\n\n${message.name}: ${message.text}`,
+          confirmLabel: Tools.i18n.t("chat_delete"),
+          cancelLabel: Tools.i18n.t("cancel"),
+          variant: "danger",
+        }))
+      )
+        return;
+      const socket = Tools.connection.socket;
+      if (!socket || !this.syncConnection()) {
+        this.showStatus("chat_unavailable");
+        return;
+      }
+      const result = /** @type {ChatDeleteResult} */ (
+        await request(socket, SocketEvents.CHAT_DELETE, { id: message.id })
+      );
+      if (result?.ok && result.id === message.id) {
+        this.receiveDeleted(result.id);
+        this.showStatus(this.messages.size === 0 ? "chat_empty" : "");
+      } else {
+        const error =
+          result && !result.ok && CHAT_ERRORS.has(result.error)
+            ? result.error
+            : "chat_delete_failed";
+        if (error === "chat_delete_forbidden") this.canDelete = false;
+        this.showStatus(error);
+      }
+    } catch {
+      this.showStatus("chat_delete_failed");
+    } finally {
+      this.pendingDeletes.delete(message.id);
+      this.render();
+    }
   }
 
   render() {
@@ -296,6 +365,43 @@ export class BoardChat {
       text.dir = "auto";
       text.textContent = message.text;
       row.append(meta, text);
+      if (this.canDelete) {
+        row.classList.add("board-chat-message-manageable");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "board-chat-delete";
+        button.setAttribute(
+          "aria-label",
+          this.getTools().i18n.t("chat_delete"),
+        );
+        button.title = this.getTools().i18n.t("chat_delete");
+        button.disabled = this.pendingDeletes.has(message.id);
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("width", "16");
+        svg.setAttribute("height", "16");
+        svg.setAttribute("aria-hidden", "true");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("stroke", "currentColor");
+        svg.setAttribute("stroke-width", "1.5");
+        const path = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path",
+        );
+        path.setAttribute(
+          "d",
+          "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7",
+        );
+        svg.append(path);
+        button.append(svg);
+        button.addEventListener("click", () => {
+          void this.deleteMessage(message);
+        });
+        row.append(button);
+      }
       fragment.append(row);
     }
     this.list.replaceChildren(fragment);
@@ -332,8 +438,10 @@ export class BoardChat {
         return;
       }
       if (!validPage(page)) throw new Error("Invalid chat history response");
+      this.canDelete = page.canDelete === true;
       for (const message of page.messages)
-        this.messages.set(message.id, message);
+        if (!this.deletedIds.has(message.id))
+          this.messages.set(message.id, message);
       this.nextBefore = page.nextBefore;
       this.loaded = true;
       this.render();

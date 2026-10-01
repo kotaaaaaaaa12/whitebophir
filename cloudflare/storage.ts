@@ -74,6 +74,9 @@ export class WhiteboardStorage extends DurableObject<Env> {
       name TEXT NOT NULL, text TEXT NOT NULL, sentAt INTEGER NOT NULL,
       UNIQUE(board, author, client_id)
     ); CREATE INDEX IF NOT EXISTS chat_board_id ON chat_messages(board, id
+    ); CREATE TABLE IF NOT EXISTS chat_deleted (
+      board TEXT NOT NULL, id INTEGER NOT NULL, author TEXT NOT NULL, client_id TEXT NOT NULL,
+      PRIMARY KEY(board, id), UNIQUE(board, author, client_id)
     );`);
   }
 
@@ -176,6 +179,10 @@ export class WhiteboardStorage extends DurableObject<Env> {
               "DELETE FROM chat_messages WHERE board = ?",
               name,
             );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM chat_deleted WHERE board = ?",
+              name,
+            );
           });
           for (;;) {
             const objects = await this.env.BOARDS.list({ prefix, limit: 100 });
@@ -227,6 +234,17 @@ export class WhiteboardStorage extends DurableObject<Env> {
         // Body parsing may yield to a deletion. Recheck the fence before writes.
         if (this.lifecycle(name)?.deleted)
           return new Response("Board deleted", { status: 410 });
+        if (
+          this.ctx.storage.sql
+            .exec(
+              "SELECT id FROM chat_deleted WHERE board = ? AND author = ? AND client_id = ?",
+              name,
+              input.author,
+              input.clientId,
+            )
+            .toArray().length
+        )
+          return new Response("Chat message deleted", { status: 409 });
         const message = this.ctx.storage.transactionSync(() => {
           this.ctx.storage.sql.exec(
             "INSERT OR IGNORE INTO chat_messages (board, author, client_id, name, text, sentAt) VALUES (?, ?, ?, ?, ?, ?)",
@@ -247,6 +265,37 @@ export class WhiteboardStorage extends DurableObject<Env> {
             .toArray()[0];
         });
         return Response.json(message);
+      }
+      if (request.method === "DELETE") {
+        const id = Number(url.searchParams.get("id"));
+        if (!validChatCursor(id))
+          return new Response("Invalid chat ID", { status: 400 });
+        const removed = this.ctx.storage.transactionSync(() => {
+          if (
+            this.ctx.storage.sql
+              .exec(
+                "SELECT id FROM chat_deleted WHERE board = ? AND id = ?",
+                name,
+                id,
+              )
+              .toArray().length
+          )
+            return true;
+          this.ctx.storage.sql.exec(
+            "INSERT INTO chat_deleted (board, id, author, client_id) SELECT board, id, author, client_id FROM chat_messages WHERE board = ? AND id = ?",
+            name,
+            id,
+          );
+          const result = this.ctx.storage.sql
+            .exec(
+              "DELETE FROM chat_messages WHERE board = ? AND id = ? RETURNING id",
+              name,
+              id,
+            )
+            .toArray();
+          return result.length === 1;
+        });
+        return Response.json(removed);
       }
       return new Response("Method not allowed", { status: 405 });
     }
