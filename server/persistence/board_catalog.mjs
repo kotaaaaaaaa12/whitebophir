@@ -22,7 +22,9 @@ export async function listBoardCatalog(config, { after, query }) {
   const names = new Set(listLoadedBoards());
   for (const file of await readdir(config.HISTORY_DIR)) {
     const match =
-      /^board-(.+?)\.(?:svg(?:\.bak)?|json(?:\.bak)?|owner\.json)$/.exec(file);
+      /^board-(.+?)\.(?:svg(?:\.bak)?|json(?:\.bak)?|owner\.json|chat\.sqlite)$/.exec(
+        file,
+      );
     if (match?.[1] && isValidBoardName(match[1])) names.add(match[1]);
   }
   const page = [];

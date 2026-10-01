@@ -6,6 +6,7 @@ const path = require("node:path");
 const { createServer } = require("node:http");
 const { fork, spawn } = require("node:child_process");
 const { once } = require("node:events");
+const { randomUUID } = require("node:crypto");
 const { Miniflare, convertV4MiniflareOptions } = require("miniflare");
 const esbuild = require("esbuild");
 
@@ -87,6 +88,8 @@ function connectSocket(port, baselineSeq) {
   const socket = new WebSocket(
     `ws://127.0.0.1:${port}/socket.io/?EIO=4&transport=websocket&board=persist-test&baselineSeq=${baselineSeq}`,
   );
+  let ackId = 0;
+  const acknowledgments = new Map();
   const frames = [];
   const waiters = new Set();
   function waitFor(predicate) {
@@ -109,6 +112,12 @@ function connectSocket(port, baselineSeq) {
     const packet = String(event.data);
     if (packet.startsWith("0")) socket.send("40");
     if (packet === "2") socket.send("3");
+    if (packet.startsWith("43")) {
+      const match = /^43(\d+)(\[.*)$/.exec(packet);
+      if (match)
+        acknowledgments.get(Number(match[1]))?.(JSON.parse(match[2])[0]);
+      return;
+    }
     if (!packet.startsWith("42")) return;
     const frame = JSON.parse(packet.slice(2));
     frames.push(frame);
@@ -121,6 +130,21 @@ function connectSocket(port, baselineSeq) {
   });
   return {
     ready: waitFor((frame) => frame[0] === "broadcast" && frame[1].type === 5),
+    call: (event, payload) =>
+      new Promise((resolve, reject) => {
+        const id = ++ackId;
+        const timer = setTimeout(() => {
+          acknowledgments.delete(id);
+          reject(new Error("Chat ack timed out"));
+        }, 5000);
+        acknowledgments.set(id, (result) => {
+          clearTimeout(timer);
+          acknowledgments.delete(id);
+          resolve(result);
+        });
+        socket.send(`42${id}${JSON.stringify([event, payload])}`);
+      }),
+    chat: () => waitFor((frame) => frame[0] === "chat_message"),
     deleted: () => waitFor((frame) => frame[0] === "board_deleted"),
     seq: (seq) =>
       waitFor(
@@ -503,6 +527,12 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
         const first = connectSocket(started.port, 7);
         const second = connectSocket(started.port, 7);
         await Promise.all([first.ready, second.ready]);
+        const sent = await first.call("chat_send", {
+          clientId: randomUUID(),
+          text: "Chat survives an empty Container disk",
+        });
+        assert.equal(sent.ok, true);
+        assert.equal((await second.chat())[1].id, sent.message.id);
         first.send({
           tool: 1,
           type: 4,
@@ -532,6 +562,12 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
         const first = connectSocket(started.port, 9);
         const second = connectSocket(started.port, 9);
         await Promise.all([first.ready, second.ready]);
+        const history = await first.call("chat_history", {});
+        assert.equal(history.ok, true);
+        assert.equal(
+          history.messages[0].text,
+          "Chat survives an empty Container disk",
+        );
         const notifications = [first.deleted(), second.deleted()];
         const removed = await fetch(
           `http://127.0.0.1:${started.port}/api/boards/persist-test`,
@@ -544,6 +580,11 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
           },
         );
         assert.equal(removed.status, 204);
+        assert.equal(
+          (await storage.dispatchFetch("http://wbo.storage/chat/persist-test"))
+            .status,
+          410,
+        );
         await Promise.all(notifications);
         assert.deepEqual(
           await (
@@ -594,6 +635,143 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
     if (child) child.kill("SIGKILL");
     bridge.closeAllConnections();
     await new Promise((resolve) => bridge.close(resolve));
+    await storage.dispose();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("chat history survives storage restarts, isolates boards, paginates without loss, deduplicates retries and fences delayed deletion writes", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wbo-chat-storage-"));
+  let storage = await createStorage(dir);
+  const input = (text) => ({
+    author: "a".repeat(64),
+    clientId: randomUUID(),
+    name: "こた",
+    text,
+    sentAt: Date.now(),
+  });
+  const post = (board, value) =>
+    storage.dispatchFetch(`http://wbo.storage/chat/${board}`, {
+      method: "POST",
+      body: JSON.stringify(value),
+    });
+  const get = async (suffix) =>
+    (await storage.dispatchFetch(`http://wbo.storage/chat/${suffix}`)).json();
+  try {
+    const firstInput = input("message 0");
+    const first = await (await post("chat-a", firstInput)).json();
+    assert.deepEqual(Object.keys(first).sort(), [
+      "id",
+      "name",
+      "sentAt",
+      "text",
+    ]);
+    for (let i = 1; i < 103; i++)
+      assert.equal((await post("chat-a", input(`message ${i}`))).status, 200);
+    assert.deepEqual(
+      await (
+        await post("chat-a", { ...firstInput, text: "retry changed" })
+      ).json(),
+      first,
+    );
+    assert.equal((await post("chat-b", input("another board"))).status, 200);
+    assert.equal(
+      (await post("chat-a", { ...firstInput, text: "\u0000" })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await storage.dispatchFetch(
+          "http://wbo.storage/chat/chat-a?before=nope",
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await storage.dispatchFetch("http://wbo.storage/chat/chat-a", {
+          method: "POST",
+          body: " ".repeat(16385),
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await post("chat-a", { ...firstInput, text: null })).status,
+      400,
+    );
+    await storage.dispose();
+    storage = await createStorage(dir);
+    const recent = await get("chat-a");
+    const older = await get(`chat-a?before=${recent.nextBefore}`);
+    const oldest = await get(`chat-a?before=${older.nextBefore}`);
+    assert.deepEqual(
+      [recent.messages.length, older.messages.length, oldest.messages.length],
+      [50, 50, 3],
+    );
+    assert.equal(oldest.nextBefore, null);
+    assert.equal(
+      new Set(
+        [...oldest.messages, ...older.messages, ...recent.messages].map(
+          (m) => m.id,
+        ),
+      ).size,
+      103,
+    );
+    assert.equal(recent.messages.at(-1).text, "message 102");
+    assert.equal(oldest.messages[0].text, "message 0");
+    assert.equal((await get("chat-b")).messages[0].text, "another board");
+    assert.deepEqual(
+      (await (await storage.dispatchFetch("http://wbo.storage/catalog")).json())
+        .names,
+      ["chat-a", "chat-b"],
+    );
+    let finishBody;
+    const delayedBody = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{"));
+        finishBody = () => {
+          controller.enqueue(
+            new TextEncoder().encode(
+              JSON.stringify(input("late message")).slice(1),
+            ),
+          );
+          controller.close();
+        };
+      },
+    });
+    const delayed = storage.dispatchFetch("http://wbo.storage/chat/chat-a", {
+      method: "POST",
+      body: delayedBody,
+      duplex: "half",
+      headers: { "x-test-delayed-body": "1" },
+    });
+    await storage.dispatchFetch("http://wbo.storage/__test/body-started", {
+      signal: AbortSignal.timeout(5000),
+    });
+    assert.equal(
+      (
+        await storage.dispatchFetch("http://wbo.storage/lifecycle/chat-a", {
+          method: "DELETE",
+        })
+      ).status,
+      204,
+    );
+    finishBody();
+    assert.equal((await delayed).status, 410);
+    assert.equal((await post("chat-a", input("deleted"))).status, 410);
+    assert.equal(
+      (await storage.dispatchFetch("http://wbo.storage/chat/chat-a")).status,
+      410,
+    );
+    assert.equal((await get("chat-b")).messages.length, 1);
+    await storage.dispose();
+    storage = await createStorage(dir);
+    assert.equal(
+      (await storage.dispatchFetch("http://wbo.storage/chat/chat-a")).status,
+      410,
+    );
+  } finally {
     await storage.dispose();
     await rm(dir, { recursive: true, force: true });
   }

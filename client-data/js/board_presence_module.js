@@ -117,6 +117,7 @@ export class PresenceModule {
 
   /** @param {boolean} open */
   setConnectedUsersPanelOpen(open) {
+    if (open) this.getTools().chat?.close();
     const shouldOpen = open && getConnectedUsersCount(this.users) > 0;
     const panel = getConnectedUsersPanel();
     const toggle = getConnectedUsersToggle();
@@ -237,6 +238,24 @@ export class PresenceModule {
       return;
     }
     this.panelOpen = toggle.getAttribute("aria-expanded") === "true";
+    const chatToggle = document.getElementById("boardChatToggle");
+    if (
+      chatToggle instanceof HTMLButtonElement &&
+      chatToggle.dataset.chatBound !== "true"
+    ) {
+      chatToggle.dataset.chatBound = "true";
+      chatToggle.addEventListener("click", () => {
+        void import("./board_chat.js")
+          .then(({ BoardChat }) => {
+            Tools.chat ||= new BoardChat(this.getTools);
+            if (Tools.chat.isOpen) Tools.chat.close();
+            else Tools.chat.open();
+          })
+          .catch(() => {
+            chatToggle.title = Tools.i18n.t("chat_unavailable");
+          });
+      });
+    }
     initDisplayNameForm(this.getTools);
     const adminButton = document.getElementById("adminSessionButton");
     if (

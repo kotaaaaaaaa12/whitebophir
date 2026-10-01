@@ -386,6 +386,7 @@ export type UserReportedPayload = {
 };
 
 export type ClientSocketIncomingEventMap = {
+  [SocketEvents.CHAT_MESSAGE]: import("../client-data/js/chat_protocol.js").ChatMessage;
   [SocketEvents.BOARD_DELETED]: { boardName: string };
   [SocketEvents.BOARDSTATE]: AppBoardState;
   [SocketEvents.BROADCAST]: IncomingBroadcast;
@@ -438,6 +439,18 @@ export type TurnstileFailureAck = {
 export type TurnstileAck = TurnstileSuccessAck | TurnstileFailureAck;
 
 export type ClientSocketOutgoingEventArgs = {
+  [SocketEvents.CHAT_SEND]: [
+    payload: { clientId: string; text: string },
+    ack: (
+      result: import("../client-data/js/chat_protocol.js").ChatSendResult,
+    ) => void,
+  ];
+  [SocketEvents.CHAT_HISTORY]: [
+    payload: { before?: number },
+    ack: (
+      result: import("../client-data/js/chat_protocol.js").ChatHistoryResult,
+    ) => void,
+  ];
   [SocketEvents.SET_DISPLAY_NAME]: [
     name: string,
     ack?: (result: { ok: boolean }) => void,
@@ -844,6 +857,7 @@ export type AppToolsState = {
   dom: BoardDomModule;
   interaction: AppInteractionModule;
   presence: AppPresenceModule;
+  chat?: import("../client-data/js/board_chat.js").BoardChat;
   messages: AppMessageModule;
   ids: AppIdModule;
   preferences: AppPreferenceModule;

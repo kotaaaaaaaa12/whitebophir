@@ -1,6 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import { CATALOG_PAGE_SIZE } from "../client-data/js/board_catalog_constants.js";
 import { decodeAndValidateBoardName } from "../client-data/js/board_name.js";
+import {
+  CHAT_PAGE_SIZE,
+  validChatInput,
+  validChatCursor,
+  type ChatMessage,
+} from "../client-data/js/chat_protocol.js";
 
 interface Entry {
   seq: number;
@@ -21,7 +27,10 @@ function validEntry(value: unknown): value is Entry {
   );
 }
 
-async function boundedJson(request: Request): Promise<unknown> {
+async function boundedJson(
+  request: Request,
+  maxBytes = 8 * 1024 * 1024,
+): Promise<unknown> {
   if (!request.body) throw new Error("Missing body");
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -30,7 +39,7 @@ async function boundedJson(request: Request): Promise<unknown> {
     const { value, done } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 8 * 1024 * 1024) {
+    if (size > maxBytes) {
       await reader.cancel();
       throw new Error("Journal request is too large");
     }
@@ -59,6 +68,12 @@ export class WhiteboardStorage extends DurableObject<Env> {
       PRIMARY KEY (board, seq)
     ); CREATE TABLE IF NOT EXISTS lifecycle (
       name TEXT PRIMARY KEY, owner TEXT, deleted INTEGER NOT NULL DEFAULT 0
+    ); CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, board TEXT NOT NULL,
+      author TEXT NOT NULL, client_id TEXT NOT NULL,
+      name TEXT NOT NULL, text TEXT NOT NULL, sentAt INTEGER NOT NULL,
+      UNIQUE(board, author, client_id)
+    ); CREATE INDEX IF NOT EXISTS chat_board_id ON chat_messages(board, id
     );`);
   }
 
@@ -78,6 +93,7 @@ export class WhiteboardStorage extends DurableObject<Env> {
         .exec<{ name: string }>(
           `SELECT catalog.name FROM (
           SELECT name FROM boards UNION SELECT name FROM lifecycle
+          UNION SELECT board AS name FROM chat_messages
         ) AS catalog LEFT JOIN lifecycle ON lifecycle.name = catalog.name
         WHERE COALESCE(lifecycle.deleted, 0) = 0 AND catalog.name > ?
           AND instr(catalog.name, ?) > 0
@@ -104,7 +120,7 @@ export class WhiteboardStorage extends DurableObject<Env> {
         .toArray();
       return Response.json(rows.map((row) => row.name));
     }
-    const match = /^\/(snapshot|restore|journal|lifecycle)\/([^/]+)$/.exec(
+    const match = /^\/(snapshot|restore|journal|lifecycle|chat)\/([^/]+)$/.exec(
       url.pathname,
     );
     const name = match ? decodeAndValidateBoardName(match[2]) : null;
@@ -156,6 +172,10 @@ export class WhiteboardStorage extends DurableObject<Env> {
               "DELETE FROM boards WHERE name = ?",
               name,
             );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM chat_messages WHERE board = ?",
+              name,
+            );
           });
           for (;;) {
             const objects = await this.env.BOARDS.list({ prefix, limit: 100 });
@@ -173,6 +193,63 @@ export class WhiteboardStorage extends DurableObject<Env> {
     }
     if (this.lifecycle(name)?.deleted)
       return new Response("Board deleted", { status: 410 });
+    if (match[1] === "chat") {
+      if (request.method === "GET") {
+        const before = Number(
+          url.searchParams.get("before") || Number.MAX_SAFE_INTEGER,
+        );
+        if (!validChatCursor(before))
+          return new Response("Invalid chat cursor", { status: 400 });
+        const rows = this.ctx.storage.sql
+          .exec<ChatMessage>(
+            "SELECT id, name, text, sentAt FROM chat_messages WHERE board = ? AND id < ? ORDER BY id DESC LIMIT ?",
+            name,
+            before,
+            CHAT_PAGE_SIZE + 1,
+          )
+          .toArray();
+        const messages = rows.slice(0, CHAT_PAGE_SIZE).reverse();
+        return Response.json({
+          messages,
+          nextBefore:
+            rows.length > CHAT_PAGE_SIZE ? (messages[0]?.id ?? null) : null,
+        });
+      }
+      if (request.method === "POST") {
+        let input: unknown;
+        try {
+          input = await boundedJson(request, 16_384);
+        } catch {
+          return new Response("Invalid chat body", { status: 400 });
+        }
+        if (!validChatInput(input))
+          return new Response("Invalid chat message", { status: 400 });
+        // Body parsing may yield to a deletion. Recheck the fence before writes.
+        if (this.lifecycle(name)?.deleted)
+          return new Response("Board deleted", { status: 410 });
+        const message = this.ctx.storage.transactionSync(() => {
+          this.ctx.storage.sql.exec(
+            "INSERT OR IGNORE INTO chat_messages (board, author, client_id, name, text, sentAt) VALUES (?, ?, ?, ?, ?, ?)",
+            name,
+            input.author,
+            input.clientId,
+            input.name,
+            input.text,
+            input.sentAt,
+          );
+          return this.ctx.storage.sql
+            .exec<ChatMessage>(
+              "SELECT id, name, text, sentAt FROM chat_messages WHERE board = ? AND author = ? AND client_id = ?",
+              name,
+              input.author,
+              input.clientId,
+            )
+            .toArray()[0];
+        });
+        return Response.json(message);
+      }
+      return new Response("Method not allowed", { status: 405 });
+    }
     if (match[1] === "restore" && request.method === "GET") {
       const row = this.board(name);
       const object = await this.env.BOARDS.get(

@@ -127,6 +127,19 @@ export async function assertBoardActive(name, config) {
   }
 }
 
+/**
+ * Local chat operations share the ownership/deletion queue. This prevents an
+ * in-flight metadata read from reopening a SQLite file after deletion finishes.
+ * @template T @param {string} name @param {ServerConfig} config @param {() => T} task
+ * @returns {Promise<T>}
+ */
+export function withActiveLocalBoard(name, config, task) {
+  return lifecycleQueue.runExclusive(async () => {
+    await assertBoardActive(name, config);
+    return task();
+  });
+}
+
 /** @param {string} name @param {ServerConfig} config */
 export function isBoardDeleting(name, config) {
   return deletingBoards.has(key(name, config));
@@ -169,6 +182,7 @@ export async function eraseBoard(name, config, freeze) {
     });
     const svgBase = path.basename(boardSvgPath(name, config.HISTORY_DIR));
     const jsonBase = path.basename(boardJsonPath(name, config.HISTORY_DIR));
+    const chatBase = `board-${name}.chat.sqlite`;
     const files = await readdir(config.HISTORY_DIR);
     await Promise.all(
       files
@@ -177,7 +191,9 @@ export async function eraseBoard(name, config, freeze) {
             file === svgBase ||
             file.startsWith(`${svgBase}.`) ||
             file === jsonBase ||
-            file.startsWith(`${jsonBase}.`),
+            file.startsWith(`${jsonBase}.`) ||
+            file === chatBase ||
+            file.startsWith(`${chatBase}-`),
         )
         .map((file) =>
           rm(path.join(config.HISTORY_DIR, file), { force: true }),

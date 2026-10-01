@@ -1629,3 +1629,121 @@ text {
   user-select: none;
   -moz-user-select: none;
 }
+
+/* The chat panel is mounted under body, outside the scrolling tool rail. */
+.board-chat-panel {
+  position: fixed;
+  z-index: 48;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 12px;
+  gap: 8px;
+  border: 1px solid var(--board-control-border);
+  border-radius: var(--board-control-radius);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgb(16 24 40 / 10%);
+  color: #111827;
+  font:
+    13px / 1.4 system-ui,
+    sans-serif;
+  overflow: auto;
+  touch-action: auto;
+}
+.board-chat-panel[hidden],
+.board-chat-panel button[hidden] {
+  display: none;
+}
+.board-chat-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.board-chat-panel h2 {
+  margin: 0;
+  font-size: 14px;
+}
+.board-chat-panel button {
+  padding: 6px 8px;
+  border: 1px solid var(--board-control-border);
+  border-radius: 2px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.board-chat-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.board-chat-panel button:focus-visible,
+.board-chat-panel textarea:focus-visible {
+  outline: 2px solid var(--board-accent-strong);
+  outline-offset: 1px;
+}
+.board-chat-context,
+.board-chat-status {
+  margin: 0;
+  font-size: 11px;
+  color: #667085;
+  overflow-wrap: anywhere;
+}
+.board-chat-status:empty {
+  display: none;
+}
+.board-chat-messages {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.board-chat-messages li {
+  padding: 8px 0;
+  border-bottom: 1px solid #edf0f3;
+}
+.board-chat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.board-chat-meta bdi {
+  font-weight: 600;
+  min-width: 0;
+}
+.board-chat-meta time {
+  color: #667085;
+}
+.board-chat-messages p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.board-chat-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.board-chat-form textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 120px;
+  padding: 6px;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid var(--board-control-border);
+  border-radius: 2px;
+  background: #ffffff;
+  color: inherit;
+  font:
+    16px / 1.4 system-ui,
+    sans-serif;
+}

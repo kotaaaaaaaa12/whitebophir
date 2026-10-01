@@ -8,7 +8,7 @@
   ],
   "license": "AGPL-3.0-or-later",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "dependencies": {
     "@cloudflare/containers": "0.3.7",
