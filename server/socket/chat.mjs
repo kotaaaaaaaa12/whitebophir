@@ -17,6 +17,11 @@ import {
 import { capToMaxSize, pruneStaleEntries } from "./bounded_state_map.mjs";
 import { canAccessBoard, canReportOnBoard, canBanOnBoard } from "./policy.mjs";
 import { getBoardUser } from "./presence.mjs";
+import {
+  adminSessionExpiry,
+  adminSessionFromCookie,
+} from "../auth/admin_session.mjs";
+import { getSocketHeaderValue, getSocketUserSecret } from "./request.mjs";
 import { isTurnstileValidationActive } from "./turnstile.mjs";
 
 /** @import { AppSocket, ServerConfig } from "../../types/server-runtime.d.ts" */
@@ -24,6 +29,22 @@ import { isTurnstileValidationActive } from "./turnstile.mjs";
 /** @typedef {{windowStart: number, count: number, lastSeen: number}} ChatRateState */
 /** @type {WeakMap<ServerConfig, Map<string, ChatRateState>>} */
 const rateMaps = new WeakMap();
+/** @type {WeakMap<AppSocket, () => number | null>} */
+const administratorSessions = new WeakMap();
+
+/** @param {AppSocket} socket @param {ServerConfig} config */
+function isAdministrator(socket, config) {
+  let expiry = administratorSessions.get(socket);
+  if (!expiry) {
+    expiry = adminSessionExpiry(
+      adminSessionFromCookie(getSocketHeaderValue(socket, "cookie")),
+      getSocketUserSecret(socket),
+      config,
+    );
+    administratorSessions.set(socket, expiry);
+  }
+  return expiry() !== null;
+}
 
 /** @param {ServerConfig} config @param {string} key @param {number} limit */
 function rateAllowed(config, key, limit) {
@@ -113,7 +134,7 @@ export async function handleChatSend(socket, board, config, payload, ack) {
         .update(user.userSecret || user.ip)
         .digest("hex"),
       clientId: input.clientId,
-      name: user.name,
+      name: `${isAdministrator(socket, config) ? "🌸" : ""}${user.name}`,
       text,
       sentAt: Date.now(),
     });

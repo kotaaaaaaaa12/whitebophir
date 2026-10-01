@@ -193,3 +193,162 @@ test("history paginates beyond 100 messages and stays inside short mobile and RT
     });
   }
 });
+
+test("a cold touch activation opens once despite extra taps and touch needs no compatibility click", async ({
+  boardPage,
+  page,
+}) => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested = () => {};
+  const started = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route("**/js/board_chat.js*", async (route) => {
+    requested();
+    await gate;
+    await route.continue();
+  });
+  try {
+    await boardPage.gotoBoard("chat-cold-touch");
+    await boardPage.waitForSocketConnected();
+    const button = page.locator("#boardChatToggle");
+    await button.tap();
+    await started;
+    await expect(button).toHaveAttribute("aria-busy", "true");
+    await button.tap();
+    release();
+    const panel = page.locator("#boardChatPanel");
+    await expect(panel).toBeVisible();
+    await expect(button).not.toHaveAttribute("aria-busy", "true");
+    await expect(panel).toHaveCount(1);
+    await button.tap();
+    await expect(panel).toBeHidden();
+    // A completed touch without click must still open; its delayed click cannot close.
+    await button.evaluate((node) => {
+      for (const type of ["pointerdown", "pointerup"])
+        node.dispatchEvent(
+          new PointerEvent(type, {
+            pointerId: 99,
+            pointerType: "touch",
+            isPrimary: true,
+            button: 0,
+            clientX: 20,
+            clientY: 20,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      node.dispatchEvent(
+        new MouseEvent("click", { detail: 1, bubbles: true, cancelable: true }),
+      );
+    });
+    await expect(panel).toBeVisible();
+    await button.tap();
+    await expect(panel).toBeHidden();
+    await button.evaluate((node) => {
+      node.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          pointerId: 100,
+          pointerType: "touch",
+          isPrimary: true,
+          button: 0,
+          bubbles: true,
+        }),
+      );
+      node.dispatchEvent(
+        new PointerEvent("pointercancel", {
+          pointerId: 100,
+          pointerType: "touch",
+          bubbles: true,
+        }),
+      );
+      node.dispatchEvent(
+        new PointerEvent("pointerup", {
+          pointerId: 100,
+          pointerType: "touch",
+          bubbles: true,
+        }),
+      );
+    });
+    await expect(panel).toBeHidden();
+    await button.focus();
+    await button.press("Space");
+    await expect(panel).toBeVisible();
+    await button.press("Enter");
+    await expect(panel).toBeHidden();
+  } finally {
+    release();
+  }
+});
+
+const adminChatTest = test.extend({
+  serverOptions: {
+    useJWT: false,
+    env: { WBO_BOARD_ADMIN_KEY: "chat-browser-password" },
+  },
+});
+adminChatTest(
+  "administrator chat flower reaches peers and history and is removed from new messages after logout",
+  async ({ boardPage, page, browser, server }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem("wbo.displayName", "こた"),
+    );
+    await boardPage.gotoBoard("chat-admin-browser");
+    await boardPage.waitForSocketConnected();
+    const response = await page.request.post(`${server.serverUrl}/api/admin`, {
+      headers: { "x-wbo-admin": "1" },
+      data: { password: "chat-browser-password" },
+    });
+    expect(response.status()).toBe(200);
+    await page.reload();
+    await boardPage.waitForSocketConnected();
+    const peerContext = await browser.newContext();
+    try {
+      const peerPage = await peerContext.newPage();
+      const peer = createBoardPage(peerPage, server);
+      await peer.gotoBoard("chat-admin-browser");
+      await peer.waitForSocketConnected();
+      await peerPage.locator("#boardChatToggle").click();
+      await page.locator("#boardChatToggle").tap();
+      await page.locator("#boardChatInput").fill("administrator message");
+      await page.locator("#boardChatInput").press("Enter");
+      await expect(peerPage.locator("#boardChatPanel li bdi")).toHaveText(
+        "🌸こた",
+      );
+      await peerPage.reload();
+      await peer.waitForSocketConnected();
+      await peerPage.locator("#boardChatToggle").click();
+      await expect(peerPage.locator("#boardChatPanel li bdi")).toHaveText(
+        "🌸こた",
+      );
+      const reloaded = page.waitForEvent("domcontentloaded");
+      const logout = await page.request.delete(
+        `${server.serverUrl}/api/admin`,
+        { headers: { "x-wbo-admin": "1" } },
+      );
+      expect(logout.status()).toBe(200);
+      await reloaded;
+      await boardPage.waitForSocketConnected();
+      await page.locator("#boardChatToggle").tap();
+      await expect
+        .poll(() =>
+          page.evaluate(() => window.WBOApp.access.boardState.canClear),
+        )
+        .toBe(false);
+      await boardPage.waitForSocketConnected();
+      await page
+        .locator("#boardChatInput")
+        .fill("ordinary message after logout");
+      await page.locator("#boardChatInput").press("Enter");
+      await expect(peerPage.locator("#boardChatPanel li bdi")).toHaveText([
+        "🌸こた",
+        "こた",
+      ]);
+    } finally {
+      await peerContext.close();
+    }
+  },
+);

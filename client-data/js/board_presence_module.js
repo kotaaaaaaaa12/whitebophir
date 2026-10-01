@@ -244,16 +244,68 @@ export class PresenceModule {
       chatToggle.dataset.chatBound !== "true"
     ) {
       chatToggle.dataset.chatBound = "true";
-      chatToggle.addEventListener("click", () => {
-        void import("./board_chat.js")
-          .then(({ BoardChat }) => {
-            Tools.chat ||= new BoardChat(this.getTools);
-            if (Tools.chat.isOpen) Tools.chat.close();
-            else Tools.chat.open();
-          })
-          .catch(() => {
-            chatToggle.title = Tools.i18n.t("chat_unavailable");
-          });
+      let loading = false;
+      let lastTouchActivation = -Infinity;
+      /** @type {{id: number, x: number, y: number} | null} */
+      let touchPress = null;
+      const activate = async () => {
+        if (loading) return;
+        if (Tools.chat) {
+          if (Tools.chat.isOpen) Tools.chat.close();
+          else Tools.chat.open();
+          return;
+        }
+        // A cold import gets one open request, regardless of repeated taps.
+        loading = true;
+        chatToggle.setAttribute("aria-busy", "true");
+        try {
+          const { BoardChat } = await import("./board_chat.js");
+          Tools.chat ||= new BoardChat(this.getTools);
+          Tools.chat.open();
+          chatToggle.title = Tools.i18n.t("chat_title");
+        } catch {
+          chatToggle.title = Tools.i18n.t("chat_unavailable");
+        } finally {
+          loading = false;
+          chatToggle.removeAttribute("aria-busy");
+        }
+      };
+      chatToggle.addEventListener("pointerdown", (event) => {
+        if (
+          event.isPrimary &&
+          event.pointerType !== "mouse" &&
+          event.button === 0
+        )
+          touchPress = {
+            id: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+          };
+      });
+      chatToggle.addEventListener("pointercancel", () => {
+        touchPress = null;
+      });
+      chatToggle.addEventListener("pointerup", (event) => {
+        const press = touchPress;
+        touchPress = null;
+        if (
+          !press ||
+          press.id !== event.pointerId ||
+          Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10
+        )
+          return;
+        // Some touch browsers delay/suppress click. Activate on a completed tap
+        // and ignore its later compatibility click, while retaining keyboard use.
+        event.preventDefault();
+        lastTouchActivation = event.timeStamp;
+        void activate();
+      });
+      chatToggle.addEventListener("click", (event) => {
+        if (event.detail !== 0 && event.timeStamp - lastTouchActivation < 800) {
+          event.preventDefault();
+          return;
+        }
+        void activate();
       });
     }
     initDisplayNameForm(this.getTools);

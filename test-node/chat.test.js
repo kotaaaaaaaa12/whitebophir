@@ -256,3 +256,74 @@ test("all 21 board languages include every chat label and error", async () => {
         assert.notEqual(dictionary[key], translations.en?.[key]);
     }
 });
+
+test("chat prefixes only a live signed administrator name and preserves the sent name after logout", async () => {
+  const auth = await import("../server/auth/admin_session.mjs");
+  const secret = "1234567890abcdef1234567890abcdef";
+  const config = {
+    AUTH_SECRET_KEY: "",
+    BOARD_ADMIN_KEY: "chat-admin-test-key",
+  };
+  const token = auth.createAdminSession(secret, config);
+  await createSocketScenario(
+    { boardName: "chat-admin-name", config },
+    async (scenario) => {
+      const admin = await scenario.connect({
+        id: "chat-admin",
+        query: { displayName: "こた" },
+        headers: {
+          cookie: `wbo-user-secret-v1=${secret}; ${auth.ADMIN_COOKIE_NAME}=${token}`,
+        },
+      });
+      const ordinary = await scenario.connect({
+        id: "chat-ordinary",
+        query: { displayName: "Peer" },
+        headers: {
+          cookie: `wbo-user-secret-v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; ${auth.ADMIN_COOKIE_NAME}=${token}`,
+        },
+      });
+      /** @param {typeof admin} created @param {string} text */
+      async function send(created, text) {
+        let result = /** @type {ChatSendResult | null} */ (null);
+        await scenario.invoke(
+          created,
+          "chat_send",
+          {
+            text,
+            clientId: randomUUID(),
+            administrator: true,
+            name: "🌸forged",
+          },
+          (/** @type {ChatSendResult} */ value) => {
+            result = value;
+          },
+        );
+        assert.ok(result);
+        const sent = /** @type {ChatSendResult} */ (result);
+        if (!sent.ok) throw new Error(sent.error);
+        return sent.message;
+      }
+      assert.equal((await send(ordinary, "not an administrator")).name, "Peer");
+      const signed = await send(admin, "signed administrator");
+      assert.equal(signed.name, "🌸こた");
+      auth.revokeAdminSession(token);
+      assert.equal((await send(admin, "after logout")).name, "こた");
+      let history = /** @type {ChatHistoryResult | null} */ (null);
+      await scenario.invoke(
+        admin,
+        "chat_history",
+        {},
+        (/** @type {ChatHistoryResult} */ value) => {
+          history = value;
+        },
+      );
+      assert.ok(history);
+      const page = /** @type {ChatHistoryResult} */ (history);
+      if (!page.ok) throw new Error(page.error);
+      assert.equal(
+        page.messages.find((m) => m.id === signed.id)?.name,
+        "🌸こた",
+      );
+    },
+  );
+});

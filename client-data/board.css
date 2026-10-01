@@ -1747,3 +1747,14 @@ text {
     16px / 1.4 system-ui,
     sans-serif;
 }
+
+/* Complete touch activation without a double-tap gesture on the chat control. */
+.board-chat-toggle {
+  touch-action: manipulation;
+}
+.board-chat-toggle svg {
+  pointer-events: none;
+}
+.board-chat-toggle[aria-busy="true"] {
+  cursor: progress;
+}
