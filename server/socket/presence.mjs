@@ -1,4 +1,5 @@
 import WBOMessageCommon from "../../client-data/js/message_common.js";
+import { normalizeDisplayName } from "../../client-data/js/display_name.js";
 import {
   extractMessageColor,
   extractMessagePosition,
@@ -70,7 +71,9 @@ function buildBoardUserRecord(
     socketId: socket.id,
     userId: buildUserId(userSecret),
     userSecret,
-    name: buildUserName(ip, userSecret),
+    name:
+      normalizeDisplayName(getSocketQueryValue(socket, "displayName")) ||
+      buildUserName(ip, userSecret),
     ip,
     userAgent: getSocketHeaderValue(socket, "user-agent"),
     language: getSocketHeaderValue(socket, "accept-language"),

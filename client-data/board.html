@@ -45,6 +45,16 @@
 			</button>
 			<div id="connectedUsersPanel" class="connected-users-panel connected-users-panel-hidden"
 				role="region" aria-label="{{translations.users}}">
+				<form id="displayNameForm" class="display-name-form">
+					<label for="displayNameInput">{{translations.display_name}}</label>
+					<div class="display-name-controls">
+						<input id="displayNameInput" type="text" maxlength="64" autocomplete="nickname"
+							aria-describedby="displayNameHint displayNameStatus" />
+						<button type="submit">{{translations.save_display_name}}</button>
+					</div>
+					<p id="displayNameHint">{{translations.display_name_hint}}</p>
+					<p id="displayNameStatus" role="status" aria-live="polite"></p>
+				</form>
 				<ul id="connectedUsersList" class="connected-users-list"></ul>
 			</div>
 		</div>

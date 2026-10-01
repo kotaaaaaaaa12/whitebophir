@@ -22,6 +22,122 @@ const USER_SECRET_COOKIE_NAME = "wbo-user-secret-v1";
 
 require(SOCKETS_PATH);
 
+test("custom names survive connection, update only the sender and preserve identity and access", async () => {
+  await createSocketScenario(
+    { boardName: "custom-names" },
+    async (scenario) => {
+      const headers = withUserSecretCookie("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+      const owner = await scenario.connect({
+        headers,
+        query: { displayName: "  Kota   🎨 " },
+      });
+      const peer = await scenario.connect({
+        id: "peer",
+        query: { displayName: "Peer" },
+      });
+      const users = scenario.test.getBoardUserMap("custom-names");
+      const before = { ...users.get(owner.socket.id) };
+      assert.equal(before.name, "Kota 🎨");
+      assert.ok(
+        peer.emitted.some(
+          (event) =>
+            event.event === "user_joined" && event.payload.name === "Kota 🎨",
+        ),
+      );
+      let accepted = false;
+      await scenario.invoke(
+        owner,
+        "set_display_name",
+        "こた",
+        (/** @type {{ok: boolean}} */ result) => {
+          accepted = result.ok;
+        },
+      );
+      assert.equal(accepted, true);
+      const renamed = users.get(owner.socket.id);
+      assert.deepEqual({ ...renamed, name: before.name }, before);
+      assert.equal(renamed.name, "こた");
+      assert.equal(users.get(peer.socket.id).name, "Peer");
+      const update = getRequiredValue(
+        owner.broadcasted[owner.broadcasted.length - 1],
+      );
+      assert.equal(update.event, "user_joined");
+      assert.equal(update.payload.name, "こた");
+      for (const value of [
+        { name: "Someone else" },
+        "x".repeat(33),
+        "a\nname",
+      ]) {
+        await scenario.invoke(
+          owner,
+          "set_display_name",
+          value,
+          (/** @type {{ok: boolean}} */ result) => {
+            assert.equal(result.ok, false);
+          },
+        );
+        assert.equal(users.get(owner.socket.id).name, "こた");
+      }
+      await scenario.invoke(
+        owner,
+        "set_display_name",
+        "",
+        (/** @type {{ok: boolean}} */ result) => {
+          assert.equal(result.ok, true);
+        },
+      );
+      assert.equal(
+        users.get(owner.socket.id).name,
+        scenario.test.buildUserName(before.ip, before.userSecret),
+      );
+      const reconnected = await scenario.connect({
+        id: "reconnected",
+        headers,
+        query: { displayName: "こた" },
+      });
+      assert.equal(users.get(reconnected.socket.id).name, "こた");
+      assert.equal(users.get(reconnected.socket.id).userId, before.userId);
+    },
+  );
+});
+
+test("invalid handshake names fall back and live renaming has a bounded rate", async () => {
+  await createSocketScenario(
+    { boardName: "custom-names-limit" },
+    async (scenario) => {
+      const owner = await scenario.connect({
+        query: { displayName: "x".repeat(33) },
+      });
+      const user = scenario.test
+        .getBoardUserMap("custom-names-limit")
+        .get(owner.socket.id);
+      assert.equal(
+        user.name,
+        scenario.test.buildUserName(user.ip, user.userSecret),
+      );
+      for (let index = 0; index < 5; index++) {
+        await scenario.invoke(
+          owner,
+          "set_display_name",
+          `Name ${index}`,
+          (/** @type {{ok: boolean}} */ result) => {
+            assert.equal(result.ok, true);
+          },
+        );
+      }
+      await scenario.invoke(
+        owner,
+        "set_display_name",
+        "Rejected",
+        (/** @type {{ok: boolean}} */ result) => {
+          assert.equal(result.ok, false);
+        },
+      );
+      assert.equal(user.name, "Name 4");
+    },
+  );
+});
+
 /**
  * @template T
  * @param {T | undefined} value

@@ -1,5 +1,6 @@
 import * as BoardMessageReplay from "./board_message_replay.js";
 import { normalizeBoardState } from "./board_page_state.js";
+import { readStoredDisplayNamePreference } from "./board_preferences.js";
 import { getAuthoritativeBaselineUrl } from "./board_replay_module.js";
 import { connection as BoardConnection } from "./board_transport.js";
 import * as BoardTurnstile from "./board_turnstile.js";
@@ -271,6 +272,7 @@ export class ConnectionModule {
           tool: Tools.preferences.initial.tool,
           color: Tools.preferences.getColor(),
           size: String(Tools.preferences.getSize()),
+          displayName: readStoredDisplayNamePreference(),
         },
       );
 

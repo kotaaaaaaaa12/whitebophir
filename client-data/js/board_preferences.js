@@ -1,4 +1,7 @@
 /** @import { AppInitialPreferences, ColorPreset } from "../../types/app-runtime" */
+import { normalizeDisplayName } from "./display_name.js";
+
+export const LOCAL_STORAGE_DISPLAY_NAME_KEY = "wbo.displayName";
 
 const DEFAULT_INITIAL_SIZE = 40;
 const DEFAULT_INITIAL_OPACITY = 1;
@@ -35,6 +38,32 @@ function getLocalStorage() {
     return typeof window === "undefined" ? null : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+/** @returns {string} */
+export function readStoredDisplayNamePreference() {
+  try {
+    return (
+      normalizeDisplayName(
+        getLocalStorage()?.getItem(LOCAL_STORAGE_DISPLAY_NAME_KEY),
+      ) || ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+/** @param {string} value @returns {boolean} */
+export function saveStoredDisplayNamePreference(value) {
+  const name = normalizeDisplayName(value);
+  const storage = getLocalStorage();
+  if (name === null || !storage) return false;
+  try {
+    storage.setItem(LOCAL_STORAGE_DISPLAY_NAME_KEY, name);
+    return true;
+  } catch {
+    return false;
   }
 }
 

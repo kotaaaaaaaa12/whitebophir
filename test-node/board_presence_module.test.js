@@ -143,6 +143,43 @@ function handUpdateMessage() {
   };
 }
 
+test("renaming presence refreshes existing cursor labels without resetting activity", async () => {
+  const { PresenceModule } = await import(
+    "../client-data/js/board_presence_module.js"
+  );
+  const { onPresenceDisplayChange } = await import(
+    "../client-data/tools/cursor/index.js"
+  );
+  const environment = createPresenceEnvironment();
+  try {
+    const tools = createPresenceTools(environment.svg, environment.drawingArea);
+    const presence = new PresenceModule(() => tools);
+    presence.schedulePresenceRender = () => {};
+    const nameNode = { textContent: "User 1" };
+    const cursorState = /** @type {any} */ ({
+      presence,
+      cursors: new Map([
+        ["cursor-sock-1", { element: { querySelector: () => nameNode } }],
+      ]),
+    });
+    tools.toolRegistry = {
+      notifyPresenceDisplayChange: () => onPresenceDisplayChange(cursorState),
+    };
+    presence.upsertConnectedUser(createConnectedUser());
+    const initial = presence.users.get("sock-1");
+    const joinedAt = initial?.joinedAt;
+    presence.upsertConnectedUser({
+      ...createConnectedUser(),
+      name: "<b>こた</b>",
+    });
+    assert.equal(nameNode.textContent, "<b>こた</b>");
+    assert.equal(presence.users.get("sock-1")?.joinedAt, joinedAt);
+    assert.equal(presence.users.get("sock-1")?.userId, "user-1");
+  } finally {
+    environment.restore();
+  }
+});
+
 test("connected user display name marks moderators consistently", async () => {
   const { getConnectedUserDisplayName } = await import(
     "../client-data/js/board_presence_module.js"

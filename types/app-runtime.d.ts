@@ -437,6 +437,10 @@ export type TurnstileFailureAck = {
 export type TurnstileAck = TurnstileSuccessAck | TurnstileFailureAck;
 
 export type ClientSocketOutgoingEventArgs = {
+  [SocketEvents.SET_DISPLAY_NAME]: [
+    name: string,
+    ack?: (result: { ok: boolean }) => void,
+  ];
   [SocketEvents.BROADCAST]: [message: LiveBoardMessage];
   [SocketEvents.REPORT_USER]: [payload: ReportUserPayload];
   [SocketEvents.SET_TEMPORARY_MODERATOR]: [

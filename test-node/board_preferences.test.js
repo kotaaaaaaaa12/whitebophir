@@ -106,3 +106,49 @@ test("PreferenceModule persists color changes", async () => {
 
   assert.equal(storage.getItem("wbo.currentColor"), "#ff4136");
 });
+
+test("display names persist, normalize whitespace, reset and tolerate unavailable storage", async () => {
+  const { readStoredDisplayNamePreference, saveStoredDisplayNamePreference } =
+    await import("../client-data/js/board_preferences.js");
+  const storage = createLocalStorage();
+  withWindow({ localStorage: storage }, () => {
+    assert.equal(saveStoredDisplayNamePreference("  Kota   🎨  "), true);
+    assert.equal(readStoredDisplayNamePreference(), "Kota 🎨");
+    assert.equal(saveStoredDisplayNamePreference("x".repeat(33)), false);
+    assert.equal(readStoredDisplayNamePreference(), "Kota 🎨");
+    assert.equal(saveStoredDisplayNamePreference(""), true);
+    assert.equal(readStoredDisplayNamePreference(), "");
+  });
+  withWindow(
+    {
+      get localStorage() {
+        throw new Error("Storage denied");
+      },
+    },
+    () => {
+      assert.equal(saveStoredDisplayNamePreference("Kota"), false);
+      assert.equal(readStoredDisplayNamePreference(), "");
+    },
+  );
+});
+
+test("display name validation rejects malformed inputs and allows Unicode and literal markup", async () => {
+  const { normalizeDisplayName } = await import(
+    "../client-data/js/display_name.js"
+  );
+  for (const value of [
+    null,
+    {},
+    [],
+    42,
+    "x".repeat(33),
+    "a\nname",
+    "a\u202ename",
+    "\ud800",
+  ]) {
+    assert.equal(normalizeDisplayName(value), null);
+  }
+  assert.equal(normalizeDisplayName("🎨".repeat(32)), "🎨".repeat(32));
+  assert.equal(normalizeDisplayName("こた 👨‍👩‍👧"), "こた 👨‍👩‍👧");
+  assert.equal(normalizeDisplayName("<b>Kota</b>"), "<b>Kota</b>");
+});

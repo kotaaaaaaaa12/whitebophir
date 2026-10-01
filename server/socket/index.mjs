@@ -1,4 +1,5 @@
 import * as socketIO from "socket.io";
+import { normalizeDisplayName } from "../../client-data/js/display_name.js";
 import { SocketEvents } from "../../client-data/js/socket_events.js";
 import { BoardData } from "../board/data.mjs";
 import {
@@ -35,6 +36,7 @@ import {
   emitUserJoinedToBoard,
   emitUserUpdatedToBoard,
   ensureBoardUser,
+  getBoardUser,
   getBoardUserMap,
   removeBoardUser,
   resetBoardUserMaps,
@@ -576,6 +578,32 @@ async function handleSocketConnection(socket, config) {
   activeSockets.set(socket.id, socket);
   updateActiveSocketConnectionsGauge();
   metrics.recordSocketConnection("connected");
+
+  // Bound name changes independently from drawing and moderation traffic.
+  let nameWindowStartedAt = 0;
+  let nameChanges = 0;
+  onSocketEvent(
+    socket,
+    SocketEvents.SET_DISPLAY_NAME,
+    function onSetDisplayName(
+      /** @type {unknown} */ value,
+      /** @type {((result: {ok: boolean}) => void) | undefined} */ ack,
+    ) {
+      const name = normalizeDisplayName(value);
+      const user = getBoardUser(boardName, socket.id);
+      const now = Date.now();
+      if (now - nameWindowStartedAt >= 10_000) {
+        nameWindowStartedAt = now;
+        nameChanges = 0;
+      }
+      const accepted = name !== null && !!user && ++nameChanges <= 5;
+      if (accepted && user) {
+        user.name = name || buildUserName(user.ip, user.userSecret);
+        emitUserUpdatedToBoard(socket, boardName, user);
+      }
+      if (typeof ack === "function") ack({ ok: accepted });
+    },
+  );
 
   onSocketEvent(socket, "error", function onSocketError(error) {
     logger.error("socket.error", {

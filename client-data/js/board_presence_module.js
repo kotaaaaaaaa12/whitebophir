@@ -1,6 +1,12 @@
 import { TOOL_ID_BY_CODE } from "../tools/tool-order.js";
 import { FriendStore } from "./board_friend_store.js";
 import { getRequiredElement } from "./board_page_state.js";
+import {
+  LOCAL_STORAGE_DISPLAY_NAME_KEY,
+  readStoredDisplayNamePreference,
+  saveStoredDisplayNamePreference,
+} from "./board_preferences.js";
+import { normalizeDisplayName } from "./display_name.js";
 import { VIEWPORT_HASH_SCALE_DECIMALS } from "./board_viewport.js";
 import { getMessageActivityPoint } from "./message_activity_point.js";
 import MessageCommon from "./message_common.js";
@@ -134,6 +140,9 @@ export class PresenceModule {
       }),
     );
     this.syncFriendStates();
+    if (previous && previous.name !== user.name) {
+      this.getTools().toolRegistry.notifyPresenceDisplayChange();
+    }
     this.schedulePresenceRender();
   }
 
@@ -187,7 +196,7 @@ export class PresenceModule {
     // Presence has three layers:
     // - `socketId`: one live browser tab/socket connection. This is the most precise activity target.
     // - `userId`: derived server-side from the shared user-secret cookie, so multiple tabs from one browser profile can share it.
-    // - displayed name: combines an IP-derived word with the `userId`, so it is human-readable but not a stable routing key.
+    // - displayed name: a custom browser preference or an automatic name, never a stable routing key.
     // When a live message includes `socket`, update that exact row only. Falling back to `userId` keeps older/non-live paths working.
     const messageSocketId = message.socket || null;
     if (!userId && messageSocketId === null) return;
@@ -228,6 +237,7 @@ export class PresenceModule {
       return;
     }
     this.panelOpen = toggle.getAttribute("aria-expanded") === "true";
+    initDisplayNameForm(this.getTools);
     syncConnectedUsersToggleLabel(Tools, this.users);
     if (!this.friendStorageBound) {
       this.friendStorageBound = true;
@@ -249,6 +259,53 @@ export class PresenceModule {
     }
     this.renderConnectedUsers();
   }
+}
+
+/** @param {() => AppToolsState} getTools */
+function initDisplayNameForm(getTools) {
+  const form = document.getElementById("displayNameForm");
+  const input = document.getElementById("displayNameInput");
+  const status = document.getElementById("displayNameStatus");
+  if (
+    !(form instanceof HTMLFormElement) ||
+    !(input instanceof HTMLInputElement) ||
+    !status
+  )
+    return;
+  if (form.dataset.displayNameBound === "true") return;
+  form.dataset.displayNameBound = "true";
+  input.value = readStoredDisplayNamePreference();
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = normalizeDisplayName(input.value);
+    const Tools = getTools();
+    if (name === null) {
+      status.textContent = Tools.i18n.t("display_name_invalid");
+      return;
+    }
+    input.value = name;
+    const saved = saveStoredDisplayNamePreference(name);
+    status.textContent = Tools.i18n.t(
+      saved ? "display_name_saved" : "display_name_not_saved",
+    );
+    const socket = Tools.connection.socket;
+    if (socket?.connected) {
+      socket.emit(SocketEvents.SET_DISPLAY_NAME, name, (result) => {
+        if (input.value === name && !result?.ok) {
+          status.textContent = Tools.i18n.t("display_name_retry");
+        }
+      });
+    }
+  });
+  window.addEventListener("storage", (event) => {
+    if (event.key !== LOCAL_STORAGE_DISPLAY_NAME_KEY && event.key !== null)
+      return;
+    const name = readStoredDisplayNamePreference();
+    input.value = name;
+    status.textContent = "";
+    const socket = getTools().connection.socket;
+    if (socket?.connected) socket.emit(SocketEvents.SET_DISPLAY_NAME, name);
+  });
 }
 
 /**

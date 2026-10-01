@@ -783,6 +783,49 @@ select {
   padding: 2px 0;
 }
 
+.display-name-form {
+  padding: 10px;
+  border-bottom: 1px solid #edf0f3;
+  color: #111827;
+  font-size: 12px;
+}
+
+.display-name-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.display-name-controls input {
+  min-width: 0;
+  width: 100%;
+}
+
+.display-name-controls input,
+.display-name-controls button {
+  box-sizing: border-box;
+  padding: 6px;
+  border: 1px solid var(--board-control-border);
+  border-radius: 4px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
+.display-name-controls button {
+  cursor: pointer;
+}
+
+.display-name-form p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 11px;
+}
+
+#displayNameStatus:empty {
+  display: none;
+}
+
 .connected-user-row {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 49px;
