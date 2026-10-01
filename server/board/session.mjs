@@ -1,4 +1,5 @@
 import { SerialTaskQueue } from "./serial_task_queue.mjs";
+import { commitCloudMutations } from "../persistence/cloud_storage.mjs";
 
 /** @typedef {import("../../types/server-runtime.d.ts").MutationLogEntry} MutationLogEntry */
 /** @typedef {import("../../types/server-runtime.d.ts").NormalizedMessageData} NormalizedMessageData */
@@ -77,6 +78,7 @@ export function createBoardSession(board) {
           ).map((effect) =>
             board.recordPersistentMutation(effect.mutation, nowMs),
           );
+          await commitCloudMutations(board.name, followup);
           return followup.length > 0 ? { ...result, followup } : result;
         }
         const entry = board.recordPersistentMutation(acceptedMutation, nowMs);
@@ -86,6 +88,7 @@ export function createBoardSession(board) {
         ).map((effect) =>
           board.recordPersistentMutation(effect.mutation, nowMs),
         );
+        await commitCloudMutations(board.name, [entry, ...followup]);
         return {
           ok: true,
           value: acceptedMutation,

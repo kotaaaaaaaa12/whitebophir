@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { publishCloudSnapshot } from "../persistence/cloud_storage.mjs";
 import observability from "../observability/index.mjs";
 import { boardJsonPath } from "../persistence/legacy_json_board_source.mjs";
 import { boardSvgBackupPath } from "../persistence/svg_board_paths.mjs";
@@ -394,6 +395,7 @@ async function unsafeSaveBoard(board) {
               return ids;
             },
           );
+          await publishCloudSnapshot(board.name, file, saveTargetSeq);
           board.persistedItemIds = new Set(persistedIds);
           board.markPersistedSeq(saveTargetSeq);
           finalizePersistedItems(board, savedItemsById, persistedIds);
