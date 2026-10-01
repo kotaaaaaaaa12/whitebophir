@@ -4,7 +4,6 @@
  */
 export function isTextEntryTarget(target) {
   return (
-    (target instanceof HTMLInputElement && target.type === "text") ||
-    target instanceof HTMLTextAreaElement
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
   );
 }

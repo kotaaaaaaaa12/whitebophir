@@ -1384,8 +1384,7 @@ export function release(state, x, y, evt, isTouchEvent) {
 function deleteShortcut(state, e) {
   if (
     e.key === "Delete" &&
-    (!isMatchableTarget(e.target) ||
-      !e.target.matches("input[type=text], textarea"))
+    (!isMatchableTarget(e.target) || !e.target.matches("input, textarea"))
   ) {
     deleteSelection(state);
   }
@@ -1395,8 +1394,7 @@ function deleteShortcut(state, e) {
 function duplicateShortcut(state, e) {
   if (
     e.key === "d" &&
-    (!isMatchableTarget(e.target) ||
-      !e.target.matches("input[type=text], textarea"))
+    (!isMatchableTarget(e.target) || !e.target.matches("input, textarea"))
   ) {
     duplicateSelection(state);
   }

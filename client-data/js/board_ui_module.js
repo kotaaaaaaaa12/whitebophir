@@ -469,6 +469,12 @@ export function showModalDialog(closeValue, render) {
         : null;
     const { dialog, panel } = createNativeDialogShell();
 
+    // Keep typing, modifier keys and button activation inside the modal.
+    // Native input, Tab navigation and Escape still use their default behavior.
+    for (const type of ["keydown", "keyup"]) {
+      dialog.addEventListener(type, (event) => event.stopPropagation());
+    }
+
     let settled = false;
     /** @param {T | null} result */
     function settle(result) {

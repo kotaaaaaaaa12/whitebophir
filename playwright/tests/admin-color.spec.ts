@@ -52,6 +52,52 @@ const adminTest = test.extend({
 });
 
 adminTest(
+  "administrator password keeps focus during typing and never activates board shortcuts",
+  async ({ boardPage, page }) => {
+    await boardPage.gotoBoard("admin-keyboard-focus");
+    await boardPage.drawRectangle(
+      "#123456",
+      { x: 100, y: 100 },
+      { x: 140, y: 140 },
+    );
+    await boardPage.selectTool("pencil");
+    await boardPage.selectTool("hand");
+    const tool = await boardPage.readActiveToolState();
+    const color = await page.locator("#chooseColor").inputValue();
+    const size = await page.locator("#chooseSize").inputValue();
+    const opacity = await page.locator("#chooseOpacity").inputValue();
+    await boardPage.connectedUsersToggle.tap();
+    await page.locator("#adminSessionButton").tap();
+    const dialog = page.getByRole("dialog", { name: "Administrator sign in" });
+    const password = dialog.locator('input[type="password"]');
+    await password.tap();
+    await password.pressSequentially("pehrz[].,sod");
+    await expect(password).toHaveValue("pehrz[].,sod");
+    await expect(password).toBeFocused();
+    await password.press("Shift+P");
+    await expect(password).toHaveValue("pehrz[].,sodP");
+    await expect(password).toBeFocused();
+    expect(await boardPage.readActiveToolState()).toEqual(tool);
+    await expect(page.locator("#chooseColor")).toHaveValue(color);
+    await expect(page.locator("#chooseSize")).toHaveValue(size);
+    await expect(page.locator("#chooseOpacity")).toHaveValue(opacity);
+    await password.press("ControlOrMeta+a");
+    await password.press("Backspace");
+    await expect(password).toHaveValue("");
+    await expect(password).toBeFocused();
+    await expect(page.locator("#drawingArea rect")).toHaveCount(1);
+    await password.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    // Once the modal has closed, the board shortcuts should work again.
+    await page.locator("#board").click({ position: { x: 400, y: 400 } });
+    await page.keyboard.press("p");
+    await expect
+      .poll(() => boardPage.readActiveToolState())
+      .toMatchObject({ tool: "pencil" });
+  },
+);
+
+adminTest(
   "administrator can clear another person's drawing, delete their board, and sign out every open tab",
   async ({ boardPage, page, context, browser, server }) => {
     const peerContext = await browser.newContext();
@@ -71,17 +117,16 @@ adminTest(
       await boardPage.connectedUsersToggle.tap();
       await page.locator("#adminSessionButton").tap();
       const login = page.getByRole("dialog", { name: "Administrator sign in" });
-      await login.locator('input[type="password"]').fill("wrong-password");
+      const password = login.locator('input[type="password"]');
+      await password.tap();
+      await password.pressSequentially("wrong-password");
       await login
         .getByRole("button", { name: "Administrator sign in", exact: true })
         .tap();
       await expect(login.getByRole("status")).toContainText("sign in failed");
-      await login
-        .locator('input[type="password"]')
-        .fill("private-browser-test-password");
-      await login
-        .getByRole("button", { name: "Administrator sign in", exact: true })
-        .tap();
+      await password.tap();
+      await password.pressSequentially("private-browser-test-password");
+      await password.press("Enter");
       await expect(boardPage.tool("clear")).toBeVisible();
       await boardPage.waitForSocketConnected();
       await expect(peer.tool("clear")).toBeHidden();
