@@ -1,4 +1,4 @@
-export {};
+import { adminText, resolveAdminLanguage } from "./admin_i18n.js";
 
 /** @param {string} id @returns {HTMLElement} */
 function element(id) {
@@ -22,6 +22,104 @@ const rows = element("boardRows");
 const count = element("boardCount");
 const empty = element("emptyBoards");
 const dialog = /** @type {HTMLDialogElement} */ (element("deleteBoardDialog"));
+const languageControl = /** @type {HTMLSelectElement} */ (
+  element("adminLanguage")
+);
+const LANGUAGE_KEY = "wbo.adminLanguage";
+let languagePreference =
+  new URL(window.location.href).searchParams.get("lang") || "auto";
+if (languagePreference !== "en" && languagePreference !== "ja") {
+  try {
+    languagePreference = localStorage.getItem(LANGUAGE_KEY) || "auto";
+  } catch {
+    languagePreference = "auto";
+  }
+}
+if (!["auto", "en", "ja"].includes(languagePreference))
+  languagePreference = "auto";
+let language = resolveAdminLanguage(languagePreference, navigator.languages);
+languageControl.value = languagePreference;
+
+/** @param {string} key @param {Record<string, string | number>} [values] */
+const t = (key, values = {}) => adminText(language, key, values);
+
+/**
+ * @param {HTMLElement} node @param {string} key
+ * @param {Record<string, string | number>} [values] @param {string} [attribute]
+ */
+function translated(node, key, values = {}, attribute = "") {
+  node.dataset.i18nValues = JSON.stringify(values);
+  if (attribute) {
+    node.setAttribute(`data-i18n-${attribute}`, key);
+    node.setAttribute(attribute, t(key, values));
+  } else {
+    node.dataset.i18n = key;
+    node.textContent = t(key, values);
+  }
+}
+
+/** @param {string} [key] @param {Record<string, string | number>} [values] */
+function showStatus(key = "", values = {}) {
+  if (key) translated(status, key, values);
+  else {
+    delete status.dataset.i18n;
+    status.textContent = "";
+  }
+}
+
+class AdminPageError extends Error {
+  /** @param {string} key @param {Record<string, string | number>} [values] */
+  constructor(key, values = {}) {
+    super(key);
+    this.key = key;
+    this.values = values;
+  }
+}
+
+/** @param {unknown} error @param {string} fallback */
+function showError(error, fallback) {
+  if (error instanceof AdminPageError) showStatus(error.key, error.values);
+  else showStatus(fallback);
+}
+
+function localizePage() {
+  document.documentElement.lang = language;
+  document.title = t("page_title");
+  for (const node of document.querySelectorAll(
+    "[data-i18n], [data-i18n-aria-label], [data-i18n-placeholder], [data-i18n-title]",
+  )) {
+    if (!(node instanceof HTMLElement)) continue;
+    const values = JSON.parse(node.dataset.i18nValues || "{}");
+    if (node.dataset.i18n) node.textContent = t(node.dataset.i18n, values);
+    for (const attribute of ["aria-label", "placeholder", "title"]) {
+      const key = node.getAttribute(`data-i18n-${attribute}`);
+      if (key) node.setAttribute(attribute, t(key, values));
+    }
+  }
+  for (const node of document.querySelectorAll("a.open-board, #adminHome")) {
+    if (!(node instanceof HTMLAnchorElement)) continue;
+    const url = new URL(node.href);
+    url.searchParams.set("lang", language);
+    node.href = url.href;
+  }
+}
+
+languageControl.addEventListener("change", () => {
+  languagePreference = languageControl.value;
+  language = resolveAdminLanguage(languagePreference, navigator.languages);
+  try {
+    localStorage.setItem(LANGUAGE_KEY, languagePreference);
+  } catch {
+    // The current page can still switch language without browser storage.
+  }
+  const url = new URL(window.location.href);
+  if (languagePreference === "auto") url.searchParams.delete("lang");
+  else url.searchParams.set("lang", languagePreference);
+  window.history.replaceState(null, "", url);
+  localizePage();
+});
+localizePage();
+
 let authenticated = false;
 let loading = false;
 let checkingAccess = false;
@@ -40,6 +138,7 @@ function setAuthenticated(active) {
   if (!active) {
     rows.replaceChildren();
     count.textContent = "";
+    delete count.dataset.i18n;
     more.hidden = true;
     if (dialog.open) dialog.close("cancel");
   }
@@ -68,7 +167,7 @@ function addBoard(board) {
   if (board.protected) {
     const badge = document.createElement("span");
     badge.className = "protected-label";
-    badge.textContent = "Public / protected";
+    translated(badge, "protected");
     name.appendChild(badge);
   }
   const actionsCell = document.createElement("td");
@@ -76,25 +175,26 @@ function addBoard(board) {
   actions.className = "board-actions";
   const open = document.createElement("a");
   open.className = "open-board";
-  open.textContent = "Open";
-  open.href = apiUrl(`boards/${encodeURIComponent(board.name)}`).href;
+  translated(open, "open");
+  const boardUrl = apiUrl(`boards/${encodeURIComponent(board.name)}`);
+  boardUrl.searchParams.set("lang", language);
+  open.href = boardUrl.href;
   open.target = "_blank";
   open.rel = "noopener";
-  open.setAttribute("aria-label", `Open ${board.name}`);
+  translated(open, "open_board", { name: board.name }, "aria-label");
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "danger";
-  remove.textContent = "Delete";
-  remove.setAttribute("aria-label", `Delete ${board.name}`);
+  translated(remove, "delete");
+  translated(remove, "delete_board", { name: board.name }, "aria-label");
   remove.disabled = board.protected;
   if (board.protected)
-    remove.title =
-      "Public and default boards cannot be deleted. Open the board to clear its drawings.";
+    translated(remove, "protected_hint", { name: board.name }, "title");
   remove.addEventListener("click", async () => {
     remove.disabled = true;
     try {
       if (!(await confirmDeletion(board.name))) return;
-      status.textContent = "Deleting board…";
+      showStatus("deleting");
       const response = await fetch(
         apiUrl(`api/boards/${encodeURIComponent(board.name)}`),
         {
@@ -105,16 +205,15 @@ function addBoard(board) {
       );
       if (!response.ok) {
         if (response.status === 403) await checkAccess();
-        throw new Error(`Deletion failed (HTTP ${response.status}).`);
+        throw new AdminPageError("delete_failed_http", {
+          status: response.status,
+        });
       }
       row.remove();
       updateCount();
-      status.textContent = "Board deleted.";
+      showStatus("deleted");
     } catch (error) {
-      status.textContent =
-        error instanceof Error
-          ? error.message
-          : "The board could not be deleted.";
+      showError(error, "delete_failed");
     } finally {
       remove.disabled = board.protected;
     }
@@ -126,7 +225,7 @@ function addBoard(board) {
 }
 
 function updateCount() {
-  count.textContent = `${rows.children.length} boards loaded`;
+  translated(count, "board_count", { count: rows.children.length });
   empty.hidden = rows.children.length !== 0;
 }
 
@@ -135,7 +234,7 @@ async function loadBoards(reset = true) {
   if (!authenticated || loading) return;
   loading = true;
   more.disabled = refresh.disabled = true;
-  status.textContent = "Loading boards…";
+  showStatus("loading");
   const url = apiUrl("api/admin/boards");
   url.searchParams.set("q", query);
   if (!reset && nextCursor) url.searchParams.set("after", nextCursor);
@@ -146,28 +245,22 @@ async function loadBoards(reset = true) {
     });
     if (response.status === 403) {
       setAuthenticated(false);
-      status.textContent = "Administrator access expired. Sign in again.";
+      showStatus("access_expired");
       return;
     }
     if (!response.ok)
-      throw new Error(
-        `The board list could not be loaded (HTTP ${response.status}).`,
-      );
+      throw new AdminPageError("list_failed_http", { status: response.status });
     const page = await response.json();
     if (!authenticated) return;
-    if (!Array.isArray(page.boards))
-      throw new Error("Invalid board list response.");
+    if (!Array.isArray(page.boards)) throw new AdminPageError("invalid_list");
     if (reset) rows.replaceChildren();
     for (const board of page.boards) addBoard(board);
     nextCursor = page.nextCursor || "";
     more.hidden = !nextCursor;
     updateCount();
-    status.textContent = "";
+    showStatus();
   } catch (error) {
-    status.textContent =
-      error instanceof Error
-        ? error.message
-        : "The board list could not be loaded.";
+    showError(error, "list_failed");
   } finally {
     loading = false;
     more.disabled = refresh.disabled = false;
@@ -183,26 +276,19 @@ async function checkAccess() {
       credentials: "same-origin",
     });
     if (!response.ok)
-      throw new Error(
-        `Administrator access could not be checked (HTTP ${response.status}).`,
-      );
+      throw new AdminPageError("access_failed_http", {
+        status: response.status,
+      });
     const access = await response.json();
     const wasAuthenticated = authenticated;
     setAuthenticated(access.authenticated === true);
-    if (!access.enabled)
-      status.textContent =
-        "Set the WBO_BOARD_ADMIN_KEY Worker Secret and redeploy to enable administrator access.";
+    if (!access.enabled) showStatus("access_disabled");
     else if (!authenticated)
-      status.textContent = wasAuthenticated
-        ? "Administrator access expired. Sign in again."
-        : "";
+      showStatus(wasAuthenticated ? "access_expired" : "");
     else if (!wasAuthenticated) await loadBoards();
   } catch (error) {
     setAuthenticated(false);
-    status.textContent =
-      error instanceof Error
-        ? error.message
-        : "Administrator access could not be checked.";
+    showError(error, "access_failed");
   } finally {
     checkingAccess = false;
   }
@@ -212,7 +298,7 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submit = loginForm.querySelector("button");
   if (submit) submit.disabled = true;
-  status.textContent = "Signing in…";
+  showStatus("signing_in");
   try {
     const response = await fetch(apiUrl("api/admin"), {
       method: "POST",
@@ -221,19 +307,14 @@ loginForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ password: password.value }),
     });
     if (!response.ok)
-      throw new Error(
-        response.status === 429
-          ? "Too many sign in attempts. Try again in one minute."
-          : "Sign in failed. Check the board admin key and try again.",
+      throw new AdminPageError(
+        response.status === 429 ? "rate_limited" : "login_failed",
       );
     password.value = "";
     await checkAccess();
-    if (!authenticated)
-      status.textContent =
-        "Sign in could not be saved. Allow cookies for this site and try again.";
+    if (!authenticated) showStatus("cookies_required");
   } catch (error) {
-    status.textContent =
-      error instanceof Error ? error.message : "Sign in failed.";
+    showError(error, "login_failed");
   } finally {
     if (submit) submit.disabled = false;
   }
@@ -247,12 +328,11 @@ logout.addEventListener("click", async () => {
       credentials: "same-origin",
       headers: { "x-wbo-admin": "1" },
     });
-    if (!response.ok) throw new Error("Sign out failed.");
+    if (!response.ok) throw new AdminPageError("logout_failed");
     setAuthenticated(false);
-    status.textContent = "Signed out.";
+    showStatus("signed_out");
   } catch (error) {
-    status.textContent =
-      error instanceof Error ? error.message : "Sign out failed.";
+    showError(error, "logout_failed");
   } finally {
     logout.disabled = false;
   }

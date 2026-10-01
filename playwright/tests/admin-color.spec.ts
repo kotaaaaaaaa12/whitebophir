@@ -2,46 +2,82 @@ import { createBoardPage, expect, test } from "../fixtures/test";
 
 test.use({ hasTouch: true, viewport: { width: 1024, height: 768 } });
 
-test("custom color opens by touch, applies HEX and RGB, and preserves the color on cancel", async ({
+test("native custom color receives trusted touch across the whole swatch and updates drawing preferences", async ({
   boardPage,
   page,
 }) => {
-  await boardPage.gotoBoard("custom-color-touch");
+  await boardPage.gotoBoard("native-color-touch");
   await boardPage.waitForSocketConnected();
   await page.locator("#styleSummary").tap();
+  const input = page.locator("#chooseColor");
+  await expect(input).toHaveAttribute("type", "color");
+  await expect(input).toHaveAttribute("aria-label", "Custom color");
+  await expect(input).not.toHaveAttribute("tabindex", "-1");
+  expect(
+    await input.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      const swatch = node.parentElement?.getBoundingClientRect();
+      if (!swatch) throw new Error("Native color input is not mounted");
+      return {
+        width: bounds.width,
+        height: bounds.height,
+        coversCenter:
+          document.elementFromPoint(
+            swatch.x + swatch.width / 2,
+            swatch.y + swatch.height / 2,
+          ) === node,
+        coversCorner:
+          document.elementFromPoint(swatch.x + 2, swatch.y + 2) === node,
+        swatchWidth: swatch.width,
+        swatchHeight: swatch.height,
+      };
+    }),
+  ).toMatchObject({ coversCenter: true, coversCorner: true });
+  await input.evaluate((node) => {
+    node.addEventListener("click", (event) => {
+      node.dataset.trustedTap = String(event.isTrusted);
+      node.dataset.tapPrevented = String(event.defaultPrevented);
+    });
+  });
   await page.locator("#colorPresetCustom").tap();
-  const dialog = page.getByRole("dialog", { name: "Custom color" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel("HEX color").fill("#abcdef");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).tap();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.locator("#chooseColor")).toHaveValue("#abcdef");
+  await expect(input).toHaveAttribute("data-trusted-tap", "true");
+  await expect(input).toHaveAttribute("data-tap-prevented", "false");
+  await expect(page.locator(".custom-color-dialog")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  // Native OS picker chrome is outside the page. Exercise its standard events
+  // after confirming that a real tap reached the actual color input.
+  await input.evaluate((node: HTMLInputElement) => {
+    node.value = "#abcdef";
+    node.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   await expect
     .poll(() => page.evaluate(() => window.WBOApp.preferences.currentColor))
     .toBe("#abcdef");
-  // Reopen through the actual palette button, including on WebKit touch devices.
-  if (!(await page.locator("#stylePanel").isVisible()))
-    await page.locator("#styleSummary").tap();
-  await page.locator("#colorPresetCustom").tap();
-  await dialog.getByLabel("HEX color").fill("#010203");
-  await dialog.getByLabel("Red").evaluate((input: HTMLInputElement) => {
-    input.value = "128";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+  await expect(page.locator("#stylePreviewDot")).toHaveAttribute(
+    "fill",
+    "#abcdef",
+  );
+  await input.evaluate((node: HTMLInputElement) => {
+    node.value = "#112233";
+    node.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  await expect(dialog.getByLabel("HEX color")).toHaveValue("#800203");
-  await dialog.getByLabel("Blue").tap();
-  await expect(dialog.getByLabel("HEX color")).not.toHaveValue("#800203");
-  await dialog.getByRole("button", { name: "Cancel", exact: true }).tap();
-  await expect(page.locator("#chooseColor")).toHaveValue("#abcdef");
-  if (!(await page.locator("#stylePanel").isVisible()))
-    await page.locator("#styleSummary").tap();
-  await page.locator("#colorPresetCustom").tap();
-  await dialog.getByLabel("HEX color").fill("invalid");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).tap();
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel("HEX color").fill("112233");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).tap();
-  await expect(page.locator("#chooseColor")).toHaveValue("#112233");
+  await expect
+    .poll(() => page.evaluate(() => window.WBOApp.preferences.currentColor))
+    .toBe("#112233");
+  await page.locator("#styleSummary").tap();
+  await expect(page.locator("#stylePanel")).toBeHidden();
+  await boardPage.selectTool("rectangle");
+  await page.mouse.move(400, 300);
+  await page.mouse.down();
+  await page.mouse.move(450, 350);
+  await page.mouse.up();
+  await expect(page.locator("#drawingArea rect")).toHaveAttribute(
+    "stroke",
+    "#112233",
+  );
+  await page.reload();
+  await boardPage.waitForSocketConnected();
+  await expect(input).toHaveValue("#112233");
 });
 
 const adminTest = test.extend({

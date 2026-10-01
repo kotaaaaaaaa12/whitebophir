@@ -124,6 +124,10 @@ function createServerRuntime(config) {
     config,
     { htmlHeadSnippet },
   );
+  const adminTemplate = new templating.Template(
+    configuredTemplatePathWithBundledFallback(config, "admin.html"),
+    config,
+  );
   const rulesTemplate = new templating.RulesTemplate(
     configuredTemplatePathWithBundledFallback(config, "rules.html"),
     config,
@@ -140,6 +144,7 @@ function createServerRuntime(config) {
     errorPage: errorTemplate,
     boardTemplate,
     indexTemplate,
+    adminTemplate,
     rulesTemplate,
     manifestTemplate,
   };

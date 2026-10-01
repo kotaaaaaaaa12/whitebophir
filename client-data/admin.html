@@ -1,64 +1,72 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{language}}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <base href="__WBO_BASE_PATH__" />
-  <title>All boards — WBO Administrator</title>
-  <link rel="stylesheet" href="admin.css?v=1" />
-  <script type="module" src="js/admin_page.js?v=1"></script>
+  <base href="{{baseHref}}" />
+  <title data-i18n="page_title">{{admin.page_title}}</title>
+  <link rel="stylesheet" href="admin.css?v=2" />
+  <script type="module" src="js/admin_page.js?v=2"></script>
 </head>
 <body>
   <main>
     <header>
-      <div><p class="eyebrow">WBO Administrator</p><h1>All boards</h1></div>
-      <nav aria-label="Administrator navigation">
-        <a href="./">Home</a>
-        <button id="adminLogout" type="button" hidden>Sign out</button>
+      <div><p class="eyebrow" data-i18n="administrator">{{admin.administrator}}</p><h1 data-i18n="all_boards">{{admin.all_boards}}</h1></div>
+      <nav data-i18n-aria-label="navigation" aria-label="{{admin.navigation}}">
+        <a id="adminHome" href="./" data-i18n="home">{{admin.home}}</a>
+        <button id="adminLogout" type="button" hidden data-i18n="sign_out">{{admin.sign_out}}</button>
       </nav>
     </header>
-    <p id="adminStatus" role="status" aria-live="polite">Checking administrator access…</p>
+    <div class="language-control">
+      <label for="adminLanguage" data-i18n="language">{{admin.language}}</label>
+      <select id="adminLanguage">
+        <option value="auto" data-i18n="automatic">{{admin.automatic}}</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+      </select>
+    </div>
+    <p id="adminStatus" role="status" aria-live="polite" data-i18n="checking_access">{{admin.checking_access}}</p>
     <section id="adminLogin" hidden aria-labelledby="loginTitle">
-      <h2 id="loginTitle">Administrator sign in</h2>
-      <p>Sign in to view and manage all saved and newly created boards.</p>
+      <h2 id="loginTitle" data-i18n="sign_in_title">{{admin.sign_in_title}}</h2>
+      <p data-i18n="sign_in_hint">{{admin.sign_in_hint}}</p>
       <form id="adminLoginForm">
-        <label for="adminPassword">Board admin key</label>
+        <label for="adminPassword" data-i18n="admin_key">{{admin.admin_key}}</label>
         <div class="login-controls">
           <input id="adminPassword" type="password" required maxlength="256" autocomplete="current-password" />
-          <button type="submit">Sign in</button>
+          <button type="submit" data-i18n="sign_in">{{admin.sign_in}}</button>
         </div>
       </form>
     </section>
-    <section id="adminManager" hidden aria-label="Board catalog">
+    <section id="adminManager" hidden data-i18n-aria-label="catalog" aria-label="{{admin.catalog}}">
       <div class="catalog-controls">
         <form id="boardSearchForm" role="search">
-          <label class="sr-only" for="boardSearch">Search board names</label>
-          <input id="boardSearch" type="search" maxlength="100" placeholder="Search board names" autocomplete="off" />
-          <button type="submit">Search</button>
+          <label class="sr-only" for="boardSearch" data-i18n="search_names">{{admin.search_names}}</label>
+          <input id="boardSearch" type="search" maxlength="100" data-i18n-placeholder="search_names" placeholder="{{admin.search_names}}" autocomplete="off" />
+          <button type="submit" data-i18n="search">{{admin.search}}</button>
         </form>
-        <button id="refreshBoards" type="button">Refresh</button>
+        <button id="refreshBoards" type="button" data-i18n="refresh">{{admin.refresh}}</button>
       </div>
-      <p class="hint">Private boards are visible only to administrators here. Open a board to edit or clear its drawings.</p>
+      <p class="hint" data-i18n="catalog_hint">{{admin.catalog_hint}}</p>
       <p id="boardCount" class="hint"></p>
       <div class="board-table-wrap">
         <table>
-          <thead><tr><th scope="col">Board</th><th scope="col" class="actions-heading">Actions</th></tr></thead>
+          <thead><tr><th scope="col" data-i18n="board">{{admin.board}}</th><th scope="col" class="actions-heading" data-i18n="actions">{{admin.actions}}</th></tr></thead>
           <tbody id="boardRows"></tbody>
         </table>
       </div>
-      <p id="emptyBoards" hidden>No matching boards.</p>
-      <button id="loadMoreBoards" type="button" hidden>Load more</button>
+      <p id="emptyBoards" hidden data-i18n="no_boards">{{admin.no_boards}}</p>
+      <button id="loadMoreBoards" type="button" hidden data-i18n="load_more">{{admin.load_more}}</button>
     </section>
   </main>
   <dialog id="deleteBoardDialog" aria-labelledby="deleteTitle">
     <form method="dialog">
-      <h2 id="deleteTitle">Delete board</h2>
+      <h2 id="deleteTitle" data-i18n="delete_title">{{admin.delete_title}}</h2>
       <p id="deleteBoardName" class="board-name"></p>
-      <p>Delete this board and all saved drawings? This cannot be undone. Everyone viewing it will return to the home page. Its old URL cannot be reused.</p>
+      <p data-i18n="delete_warning">{{admin.delete_warning}}</p>
       <div class="dialog-actions">
-        <button type="submit" value="cancel" autofocus>Cancel</button>
-        <button type="submit" value="delete" class="danger">Delete board</button>
+        <button type="submit" value="cancel" autofocus data-i18n="cancel">{{admin.cancel}}</button>
+        <button type="submit" value="delete" class="danger" data-i18n="delete_title">{{admin.delete_title}}</button>
       </div>
     </form>
   </dialog>

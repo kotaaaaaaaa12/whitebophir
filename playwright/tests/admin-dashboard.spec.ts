@@ -156,3 +156,141 @@ test("administrator dashboard loads subsequent pages, retains refresh/search, an
   await expect(page.locator("#adminManager")).toBeHidden();
   await expect(page.locator("#boardRows tr")).toHaveCount(0);
 });
+
+test.describe("Japanese administrator dashboard", () => {
+  test.use({ locale: "ja-JP" });
+
+  test("automatically localizes Japanese, switches live without losing search, opens Japanese boards and translates errors and deletion confirmation", async ({
+    page,
+    server,
+  }) => {
+    for (const name of ["anonymous", "日本語のボード", "other-private-board"]) {
+      await writeFile(
+        path.join(server.dataPath, `board-${name}.owner.json`),
+        JSON.stringify({ owner: null, deleted: false }),
+      );
+    }
+    await page.goto(`${server.serverUrl}/admin`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await expect(
+      page.getByRole("heading", { name: "すべてのボード", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("表示言語")).toHaveValue("auto");
+    await page.getByLabel("管理パスワード").fill("wrong-password");
+    await page.getByRole("button", { name: "ログイン", exact: true }).tap();
+    await expect(page.locator("#adminStatus")).toContainText(
+      "ログインできませんでした",
+    );
+    await page.getByLabel("表示言語").selectOption("en");
+    await expect(page.locator("#adminStatus")).toContainText("Sign in failed");
+    await page.getByLabel("Language").selectOption("auto");
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await page.getByLabel("管理パスワード").fill("dashboard-private-test-key");
+    await page.getByRole("button", { name: "ログイン", exact: true }).tap();
+    await expect(page.locator("#boardCount")).toHaveText("3件のボードを表示中");
+    const protectedButton = page.getByRole("button", {
+      name: "anonymousを削除",
+      exact: true,
+    });
+    await expect(protectedButton).toBeDisabled();
+    await page.getByLabel("表示言語").selectOption("en");
+    await expect(
+      page.getByRole("button", { name: "Delete anonymous", exact: true }),
+    ).toBeDisabled();
+    await page.getByLabel("Language").selectOption("ja");
+    await page.getByLabel("ボード名を検索").fill("日本語");
+    await page.getByRole("button", { name: "検索", exact: true }).tap();
+    await expect(page.locator("#boardCount")).toHaveText("1件のボードを表示中");
+    await page.getByLabel("表示言語").selectOption("en");
+    await expect(page.locator("#boardRows tr")).toHaveCount(1);
+    await expect(page.getByLabel("Search board names")).toHaveValue("日本語");
+    await expect(page.locator("#boardCount")).toHaveText("Boards loaded: 1");
+    await page.getByLabel("Language").selectOption("ja");
+    const popupPromise = page.waitForEvent("popup");
+    await page
+      .getByRole("link", { name: "日本語のボードを開く", exact: true })
+      .tap();
+    const popup = await popupPromise;
+    const opened = createBoardPage(popup, server);
+    await opened.waitForSocketConnected();
+    await expect(popup.locator("html")).toHaveAttribute("lang", "ja");
+    await opened.connectedUsersToggle.tap();
+    await expect(popup.locator("#adminSessionButton")).toHaveText("管理者");
+    await expect(popup.locator(".admin-boards-link")).toHaveText(
+      "すべてのボード",
+    );
+    await expect(popup.locator(".admin-boards-link")).toHaveAttribute(
+      "href",
+      /lang=ja/,
+    );
+    await expect(popup.locator("#deleteBoardButton")).toHaveText(
+      "ボードを削除",
+    );
+    await expect(popup.locator("#chooseColor")).toHaveAttribute(
+      "aria-label",
+      "カスタムカラー",
+    );
+    await popup.close();
+    await page
+      .getByRole("button", { name: "日本語のボードを削除", exact: true })
+      .tap();
+    const confirmation = page.getByRole("dialog", { name: "ボードを削除" });
+    await expect(confirmation).toContainText("この操作は元に戻せません");
+    await confirmation
+      .getByRole("button", { name: "キャンセル", exact: true })
+      .tap();
+    await expect(page.locator("#boardRows tr")).toHaveCount(1);
+    const catalogUrl = `${server.serverUrl}/api/admin/boards*`;
+    await page.route(catalogUrl, (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: "{}",
+      }),
+    );
+    await page.getByRole("button", { name: "更新", exact: true }).tap();
+    await expect(page.locator("#adminStatus")).toHaveText(
+      "ボード一覧を読み込めませんでした（HTTP 503）。",
+    );
+    await page.unroute(catalogUrl);
+    await page.getByRole("button", { name: "更新", exact: true }).tap();
+    await expect(page.locator("#adminStatus")).toBeEmpty();
+    await expect(page.locator("#boardRows tr")).toHaveCount(1);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.reload();
+    await expect(page.getByLabel("表示言語")).toHaveValue("ja");
+    await expect(page.locator("#boardRows tr")).toHaveCount(3);
+    await page.getByRole("button", { name: "ログアウト", exact: true }).tap();
+    await expect(page.locator("#adminStatus")).toHaveText(
+      "ログアウトしました。",
+    );
+    await page.getByLabel("表示言語").selectOption("en");
+    await expect(page.locator("#adminStatus")).toHaveText("Signed out.");
+    await expect(page.locator("#boardRows tr")).toHaveCount(0);
+  });
+
+  test("persists a manual language override, supports Auto and honors an explicit URL language", async ({
+    page,
+    server,
+  }) => {
+    await page.goto(`${server.serverUrl}/admin`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await page.getByLabel("表示言語").selectOption("en");
+    await page.goto(`${server.serverUrl}/admin`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByLabel("Language")).toHaveValue("en");
+    await page.getByLabel("Language").selectOption("auto");
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await page.goto(`${server.serverUrl}/admin?lang=en`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await page.goto(`${server.serverUrl}/admin?lang=ja`);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await expect(
+      page.getByRole("heading", { name: "管理者ログイン", exact: true }),
+    ).toBeVisible();
+  });
+});

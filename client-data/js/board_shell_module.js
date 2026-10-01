@@ -375,20 +375,20 @@ export class BoardShellModule {
    */
   addCustomColorButton(colorPresetContainer, colorPresetTemplate) {
     const Tools = this.getTools();
-    const elem = colorPresetTemplate.cloneNode(true);
-    if (!(elem instanceof HTMLElement)) {
-      throw new Error("Color preset template clone must be an element");
-    }
+    const elem = document.createElement("label");
+    elem.className = colorPresetTemplate.className;
     elem.classList.add("colorPresetCustom");
     elem.id = "colorPresetCustom";
-    const label = Tools.i18n.t("color");
+    const label = Tools.i18n.t("custom_color");
     elem.title = label;
     elem.setAttribute("aria-label", label);
-    elem.addEventListener("click", () => {
-      void import("./custom_color.js").then((module) =>
-        module.chooseCustomColor(Tools),
-      );
-    });
+    // Let the browser handle a real tap on the native control. In particular,
+    // iOS color UI must not depend on an async import or synthetic click.
+    const chooser = getRequiredInput("chooseColor");
+    chooser.className = "native-color-input";
+    chooser.removeAttribute("tabindex");
+    chooser.setAttribute("aria-label", label);
+    elem.appendChild(chooser);
     colorPresetContainer.appendChild(elem);
     return elem;
   }

@@ -65,6 +65,7 @@ p {
 }
 button,
 input,
+select,
 a {
   font: inherit;
 }
@@ -101,6 +102,22 @@ input {
   font-size: 16px;
   background: #fff;
   color: #17212b;
+}
+.language-control {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.language-control select {
+  border: 1px solid #b8c0cc;
+  border-radius: 2px;
+  padding: 6px 8px;
+  background: #fff;
+  color: #17212b;
+  font-size: 16px;
 }
 :focus-visible {
   outline: 2px solid #abc6c6;

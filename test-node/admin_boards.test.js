@@ -46,6 +46,19 @@ test("private board catalog requires a signed administrator session, includes em
     const html = await page.text();
     assert.equal(html.includes("secret-legacy"), false);
     assert.match(html, /<base href="\/"/);
+    const japanese = await fetch(`${base}/admin`, {
+      headers: { "accept-language": "ja-JP,en;q=0.9" },
+    });
+    assert.match(japanese.headers.get("vary") || "", /Accept-Language/);
+    const japaneseHtml = await japanese.text();
+    assert.match(japaneseHtml, /<html lang="ja">/);
+    assert.match(japaneseHtml, /すべてのボード/);
+    assert.match(japaneseHtml, /管理パスワード/);
+    assert.equal(japaneseHtml.includes("secret-legacy"), false);
+    const english = await fetch(`${base}/admin?lang=en`, {
+      headers: { "accept-language": "ja-JP" },
+    });
+    assert.match(await english.text(), /<html lang="en">/);
     const created = await fetch(`${base}/boards/empty-created`, {
       headers: { cookie: userCookie },
     });

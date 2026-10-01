@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { ADMIN_TRANSLATIONS } from "../../client-data/js/admin_i18n.js";
 import { isValidBoardName } from "../../client-data/js/board_name.js";
 import {
   adminSessionExpiry,
@@ -9,7 +8,6 @@ import { getUserSecretFromCookieHeader } from "../auth/user_secret_cookie.mjs";
 import { publicPath } from "../http/request_url.mjs";
 import { listBoardCatalog } from "../persistence/board_catalog.mjs";
 import { isProtectedBoard } from "../persistence/board_lifecycle.mjs";
-import { escapeHtml } from "../persistence/xml_escape.mjs";
 import { ensureBoardUserSecretCookie } from "./board_http_helpers.mjs";
 
 /** @import { HttpRouteContext } from "../../types/server-runtime.d.ts" */
@@ -30,19 +28,19 @@ export async function serveAdminPage(ctx) {
     ctx.publicUrl,
     publicPath(config, "/"),
   );
-  const source = await readFile(
-    path.join(config.WEBROOT, "admin.html"),
-    "utf8",
-  );
-  const html = source.replace(
-    "__WBO_BASE_PATH__",
-    escapeHtml(publicPath(config, "/")),
-  );
+  const template = ctx.runtime.adminTemplate;
+  const parameters = template.parameters(ctx.publicUrl, ctx.request, false);
+  const language = parameters.language === "ja" ? "ja" : "en";
+  const html = template.render({
+    language,
+    baseHref: publicPath(config, "/"),
+    admin: ADMIN_TRANSLATIONS[language],
+  });
   ctx.response.writeHead(200, {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "private, no-store",
     "X-Robots-Tag": "noindex, nofollow",
-    Vary: "Cookie",
+    Vary: "Cookie, Accept-Language",
   });
   ctx.response.end(ctx.request.method === "HEAD" ? undefined : html);
 }
