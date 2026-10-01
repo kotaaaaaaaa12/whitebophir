@@ -96,6 +96,7 @@ function connectSocket(port, baselineSeq) {
   });
   return {
     ready: waitFor((frame) => frame[0] === "broadcast" && frame[1].type === 5),
+    deleted: () => waitFor((frame) => frame[0] === "board_deleted"),
     seq: (seq) =>
       waitFor(
         (frame) =>
@@ -169,6 +170,108 @@ test("journal validation, snapshot compaction, and persistence across runtime re
   }
 });
 
+test("ownership persists and deletion removes checkpoints, orphaned snapshots and journals without resurrection", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wbo-storage-delete-"));
+  let storage = await createStorage(dir);
+  try {
+    const owner = "a".repeat(64);
+    const register = async (value) =>
+      (
+        await storage.dispatchFetch("http://wbo.storage/lifecycle/owned", {
+          method: "POST",
+          body: JSON.stringify({ owner: value, mayClaim: true }),
+        })
+      ).json();
+    assert.equal((await register(owner)).owner, owner);
+    assert.equal((await register("b".repeat(64))).owner, owner);
+    await storage.dispose();
+    storage = await createStorage(dir);
+    assert.equal(
+      (
+        await (
+          await storage.dispatchFetch("http://wbo.storage/lifecycle/owned")
+        ).json()
+      ).owner,
+      owner,
+    );
+    const entry = {
+      seq: 1,
+      acceptedAtMs: 100,
+      mutation: { tool: "rectangle", type: 1, id: "r1" },
+    };
+    assert.equal((await commit(storage, "owned", [entry])).status, 204);
+    assert.equal(
+      (await snapshot(storage, "owned", 1, '<svg data-wbo-seq="1"></svg>'))
+        .status,
+      204,
+    );
+    assert.equal(
+      (await commit(storage, "owned", [{ ...entry, seq: 2 }])).status,
+      204,
+    );
+    const bucket = await storage.getR2Bucket("BOARDS");
+    await bucket.put("boards/owned/99.svg", "orphaned upload");
+    await bucket.put("boards/other/0.svg", "keep another board");
+    // A journal body that finishes after deletion must not recreate catalog rows.
+    let finishBody;
+    const delayedBody = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("["));
+        finishBody = () => {
+          controller.enqueue(
+            new TextEncoder().encode(
+              `${JSON.stringify({ ...entry, seq: 3 })}]`,
+            ),
+          );
+          controller.close();
+        };
+      },
+    });
+    const delayedJournal = storage.dispatchFetch(
+      "http://wbo.storage/journal/owned",
+      { method: "POST", body: delayedBody, duplex: "half" },
+    );
+    const removed = await storage.dispatchFetch(
+      "http://wbo.storage/lifecycle/owned",
+      { method: "DELETE" },
+    );
+    assert.equal(removed.status, 204);
+    finishBody();
+    assert.equal((await delayedJournal).status, 410);
+    assert.equal(
+      (await bucket.list({ prefix: "boards/owned/" })).objects.length,
+      0,
+    );
+    assert.ok(await bucket.get("boards/other/0.svg"));
+    assert.equal(
+      (await commit(storage, "owned", [{ ...entry, seq: 3 }])).status,
+      410,
+    );
+    assert.equal(
+      (await snapshot(storage, "owned", 2, "late snapshot")).status,
+      410,
+    );
+    await storage.dispose();
+    storage = await createStorage(dir);
+    assert.deepEqual(
+      await (await storage.dispatchFetch("http://wbo.storage/boards")).json(),
+      [],
+    );
+    assert.equal(
+      (await storage.dispatchFetch("http://wbo.storage/restore/owned")).status,
+      410,
+    );
+    assert.equal(
+      (await storage.dispatchFetch("http://wbo.storage/journal/owned")).status,
+      410,
+    );
+    assert.equal((await register("b".repeat(64))).deleted, 1);
+  } finally {
+    await storage.dispose();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("accepted edits survive an abrupt Node process exit and two empty-disk starts", {
   timeout: 60_000,
 }, async () => {
@@ -203,6 +306,7 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
     WBO_SAVE_INTERVAL: "1000000000",
     WBO_MAX_SAVE_DELAY: "1000000000",
     WBO_CLOUD_STORAGE_URL: `http://127.0.0.1:${bridge.address().port}`,
+    WBO_BOARD_ADMIN_KEY: "recovery-test-admin-key",
   };
   let child;
   try {
@@ -312,11 +416,68 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
         assert.equal(persisted.at(-1).seq, 9);
         // Keep clients connected while killing the process, so unload does not
         // save the SVG. The next start must replay a journal over a snapshot.
+      } else {
+        const first = connectSocket(started.port, 9);
+        const second = connectSocket(started.port, 9);
+        await Promise.all([first.ready, second.ready]);
+        const notifications = [first.deleted(), second.deleted()];
+        const removed = await fetch(
+          `http://127.0.0.1:${started.port}/api/boards/persist-test`,
+          {
+            method: "DELETE",
+            headers: {
+              "x-wbo-delete": "1",
+              "x-board-admin-key": baseEnv.WBO_BOARD_ADMIN_KEY,
+            },
+          },
+        );
+        assert.equal(removed.status, 204);
+        await Promise.all(notifications);
+        assert.deepEqual(
+          await (
+            await storage.dispatchFetch("http://wbo.storage/boards")
+          ).json(),
+          [],
+        );
+        const bucket = await storage.getR2Bucket("BOARDS");
+        assert.equal(
+          (await bucket.list({ prefix: "boards/persist-test/" })).objects
+            .length,
+          0,
+        );
+        const gone = await fetch(
+          `http://127.0.0.1:${started.port}/boards/persist-test`,
+        );
+        assert.equal(gone.status, 410);
+        await gone.text();
       }
       child.kill("SIGKILL");
       await once(child, "exit");
       child = undefined;
     }
+    child = fork(path.join(root, "cloudflare/entrypoint.mjs"), [], {
+      cwd: root,
+      env: { ...baseEnv, WBO_HISTORY_DIR: path.join(dir, "after-delete") },
+      silent: true,
+    });
+    let restartErrors = "";
+    child.stderr.on("data", (data) => {
+      restartErrors += data;
+    });
+    const restarted = await Promise.race([
+      once(child, "message").then(([message]) => message),
+      once(child, "exit").then(([code]) => {
+        throw new Error(`Restart exited ${code}: ${restartErrors}`);
+      }),
+    ]);
+    const gone = await fetch(
+      `http://127.0.0.1:${restarted.port}/boards/persist-test`,
+    );
+    assert.equal(gone.status, 410);
+    await gone.text();
+    child.kill("SIGKILL");
+    await once(child, "exit");
+    child = undefined;
   } finally {
     if (child) child.kill("SIGKILL");
     bridge.closeAllConnections();

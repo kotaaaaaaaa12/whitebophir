@@ -177,26 +177,40 @@ export function positionAnchoredPanel({
   fallbackWidth = 200,
 }) {
   const rect = anchor.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const panelWidth = panel.offsetWidth || fallbackWidth;
-  const panelHeight = panel.offsetHeight || 0;
+  const viewport = window.visualViewport;
+  const viewportLeft = viewport?.offsetLeft || 0;
+  const viewportTop = viewport?.offsetTop || 0;
+  const viewportWidth = viewport?.width || window.innerWidth;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  const maxWidth = Math.max(0, viewportWidth - 2 * margin);
+  const maxHeight = Math.max(0, viewportHeight - 2 * margin);
+  // Constrain before measuring: the keyboard and Safari chrome can shrink the
+  // visible viewport without changing the layout viewport.
+  panel.style.maxWidth = `${maxWidth}px`;
+  panel.style.maxHeight = `${maxHeight}px`;
+  panel.style.overflowY = "auto";
+  const panelWidth = Math.min(panel.offsetWidth || fallbackWidth, maxWidth);
+  const panelHeight = Math.min(panel.offsetHeight || 0, maxHeight);
 
   let left = rect.right + gap;
-  if (left + panelWidth > viewportWidth - margin) {
+  if (left + panelWidth > viewportLeft + viewportWidth - margin) {
     left = rect.left - gap - panelWidth;
   }
-  left = clamp(left, margin, viewportWidth - margin - panelWidth);
-
-  const maxHeight = Math.max(0, viewportHeight - 2 * margin);
-  panel.style.maxHeight = `${maxHeight}px`;
-  panel.style.overflowY = panelHeight > maxHeight ? "auto" : "";
+  left = clamp(
+    left,
+    viewportLeft + margin,
+    viewportLeft + viewportWidth - margin - panelWidth,
+  );
 
   const top =
-    rect.top + panelHeight <= viewportHeight - margin
+    rect.top + panelHeight <= viewportTop + viewportHeight - margin
       ? rect.top
       : rect.bottom - panelHeight;
-  const clampedTop = clamp(top, margin, viewportHeight - margin - panelHeight);
+  const clampedTop = clamp(
+    top,
+    viewportTop + margin,
+    viewportTop + viewportHeight - margin - panelHeight,
+  );
 
   panel.style.left = `${left}px`;
   panel.style.top = `${clampedTop}px`;
@@ -298,6 +312,9 @@ export function createFloatingPanelController(options) {
     addListener(window, "resize", resizeListener, { passive: true });
     if (window.visualViewport) {
       addListener(window.visualViewport, "resize", resizeListener, {
+        passive: true,
+      });
+      addListener(window.visualViewport, "scroll", resizeListener, {
         passive: true,
       });
     }
@@ -444,7 +461,7 @@ export function createModalShell(options = {}) {
  * @param {(panel: HTMLElement, settle: (result: T | null) => void) => void} render
  * @returns {Promise<T | null>}
  */
-function showModalDialog(closeValue, render) {
+export function showModalDialog(closeValue, render) {
   return new Promise((resolve) => {
     const previousFocus =
       document.activeElement instanceof HTMLElement

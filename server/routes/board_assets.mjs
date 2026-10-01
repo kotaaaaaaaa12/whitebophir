@@ -7,6 +7,7 @@ import {
   serveError,
 } from "../http/observation.mjs";
 import observability from "../observability/index.mjs";
+import { assertBoardActive } from "../persistence/board_lifecycle.mjs";
 import {
   boardExists,
   readServedBaseline,
@@ -37,10 +38,11 @@ function rejectMissingBoardName() {
 /**
  * @param {HttpRouteContext} ctx
  * @param {string} boardName
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function requireBoardOpenPermission(ctx, boardName) {
+async function requireBoardOpenPermission(ctx, boardName) {
   boardPermissionsForRequest(ctx, boardName).requireOpen();
+  await assertBoardActive(boardName, ctx.runtime.config);
 }
 
 /**
@@ -50,7 +52,7 @@ function requireBoardOpenPermission(ctx, boardName) {
 async function serveBoardSvg(ctx) {
   const boardName = requireBoardPathName(ctx.params);
   annotateBoardRequest(ctx.observed, boardName);
-  requireBoardOpenPermission(ctx, boardName);
+  await requireBoardOpenPermission(ctx, boardName);
   const persistedSeq = await readStoredSvgSeq(boardName, {
     historyDir: ctx.runtime.config.HISTORY_DIR,
   });
@@ -114,12 +116,12 @@ async function serveBoardSvg(ctx) {
 
 /**
  * @param {HttpRouteContext} ctx
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function downloadBoard(ctx) {
+async function downloadBoard(ctx) {
   const boardName = requireBoardPathName(ctx.params);
   annotateBoardRequest(ctx.observed, boardName);
-  requireBoardOpenPermission(ctx, boardName);
+  await requireBoardOpenPermission(ctx, boardName);
   void respondWithBoardDownload(ctx, boardName).catch(
     serveError(ctx.request, ctx.response, ctx.runtime.errorPage, ctx.observed),
   );
@@ -152,12 +154,12 @@ async function respondWithBoardDownload(ctx, boardName) {
 
 /**
  * @param {HttpRouteContext} ctx
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function serveBoardPreview(ctx) {
+async function serveBoardPreview(ctx) {
   const boardName = requireBoardPathName(ctx.params);
   annotateBoardRequest(ctx.observed, boardName);
-  requireBoardOpenPermission(ctx, boardName);
+  await requireBoardOpenPermission(ctx, boardName);
   const startedAt = Date.now();
   void respondWithBoardPreview(ctx, boardName, startedAt).catch((error) => {
     recordPreviewDuration(ctx, startedAt);

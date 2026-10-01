@@ -263,7 +263,32 @@ test("positionAnchoredPanel keeps panels inside the viewport", async () => {
   assert.equal(panel.style.left, "142px");
   assert.equal(panel.style.top, "30px");
   assert.equal(panel.style.maxHeight, "184px");
-  assert.equal(panel.style.overflowY, "");
+  assert.equal(panel.style.overflowY, "auto");
+});
+
+test("anchored color panels fit Safari's visible viewport and scroll oversized contents", async () => {
+  const browser = getBrowserHarness();
+  browser.installClientDom({ innerWidth: 390, innerHeight: 844 });
+  browser.setWindowProperties({
+    visualViewport: { offsetLeft: 20, offsetTop: 100, width: 320, height: 240 },
+  });
+  const { positionAnchoredPanel } = await import(
+    "../client-data/js/board_ui_module.js"
+  );
+  const anchor = /** @type {HTMLElement} */ (
+    /** @type {unknown} */ (
+      new FakeElement({ left: 28, right: 68, top: 700, bottom: 740 })
+    )
+  );
+  const panel = /** @type {HTMLElement} */ (
+    /** @type {unknown} */ (new FakeElement({ width: 200, height: 600 }))
+  );
+  const result = positionAnchoredPanel({ anchor, panel });
+  assert.equal(result.maxHeight, 224);
+  assert.equal(result.top, 108);
+  assert.ok(result.left >= 28 && result.left + 200 <= 332);
+  assert.equal(panel.style.maxWidth, "304px");
+  assert.equal(panel.style.overflowY, "auto");
 });
 
 test("floating panel controller owns hover, escape, blur, and resize behavior", async () => {

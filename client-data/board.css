@@ -826,6 +826,32 @@ select {
   display: none;
 }
 
+.board-management {
+  padding: 10px;
+  border-top: 1px solid #edf0f3;
+  font-size: 12px;
+}
+
+.board-management button {
+  padding: 6px 8px;
+  border: 1px solid #d7c2bc;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #7c2d12;
+  font: inherit;
+  cursor: pointer;
+}
+
+.board-management p {
+  margin: 6px 0 0;
+  color: #7c2d12;
+  overflow-wrap: anywhere;
+}
+
+#deleteBoardStatus:empty {
+  display: none;
+}
+
 .connected-user-row {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 49px;
@@ -1440,9 +1466,17 @@ input {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.style-panel > * {
+  flex-shrink: 0;
 }
 
 .colorPresetButton {
+  box-sizing: border-box;
+  min-width: 0;
   width: 100%;
   aspect-ratio: 1 / 1;
   border: 1px solid var(--board-control-border-strong);

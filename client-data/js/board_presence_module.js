@@ -238,6 +238,18 @@ export class PresenceModule {
     }
     this.panelOpen = toggle.getAttribute("aria-expanded") === "true";
     initDisplayNameForm(this.getTools);
+    const deleteButton = document.getElementById("deleteBoardButton");
+    if (
+      deleteButton instanceof HTMLButtonElement &&
+      deleteButton.dataset.deleteBound !== "true"
+    ) {
+      deleteButton.dataset.deleteBound = "true";
+      deleteButton.addEventListener("click", () => {
+        void import("./board_management.js").then((module) =>
+          module.deleteCurrentBoard(this.getTools()),
+        );
+      });
+    }
     syncConnectedUsersToggleLabel(Tools, this.users);
     if (!this.friendStorageBound) {
       this.friendStorageBound = true;

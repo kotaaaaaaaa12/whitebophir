@@ -67,7 +67,10 @@ export class ReplayModule {
       headers: { Accept: "image/svg+xml" },
     });
     if (!response.ok) {
-      throw new Error(`Baseline fetch failed with HTTP ${response.status}`);
+      throw Object.assign(
+        new Error(`Baseline fetch failed with HTTP ${response.status}`),
+        { status: response.status },
+      );
     }
     const baseline = parseServedBaselineSvgText(
       await response.text(),

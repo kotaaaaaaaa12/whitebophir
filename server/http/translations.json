@@ -114,7 +114,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "be": {
     "white-out": "Замазка",
@@ -231,7 +239,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "ca": {
     "white-out": "Corrector blanc",
@@ -348,7 +364,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "de": {
     "board_name_placeholder": "Name des Whiteboards…",
@@ -465,7 +489,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "en": {
     "white-out": "White-out",
@@ -582,7 +614,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "es": {
     "board_name_placeholder": "Nombre de la pizarra …",
@@ -699,7 +739,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "fr": {
     "board_name_placeholder": "Nom du tableau…",
@@ -815,7 +863,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "hu": {
     "white-out": "Lefedő",
@@ -932,7 +988,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "id": {
     "white-out": "Cairan koreksi",
@@ -1049,7 +1113,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "it": {
     "board_name_placeholder": "Nome della lavagna…",
@@ -1166,7 +1238,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "ja": {
     "board_name_placeholder": "ボードの名前",
@@ -1283,7 +1363,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "my": {
     "board_name_placeholder": "ဝှိုက်ဘုတ်အမည် ... ",
@@ -1400,7 +1488,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "pt": {
     "white-out": "Branquejar",
@@ -1517,7 +1613,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "ru": {
     "board_name_placeholder": "Название доски",
@@ -1634,7 +1738,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "sw": {
     "board_name_placeholder": "Jina la ubao mweupe ...",
@@ -1751,7 +1863,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "th": {
     "board_name_placeholder": "ชื่อไวท์บอร์ด ...",
@@ -1868,7 +1988,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "uk": {
     "white-out": "Коректор",
@@ -1985,7 +2113,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "vi": {
     "white-out": "Bút xóa",
@@ -2102,7 +2238,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "zh-CN": {
     "board_name_placeholder": "白板名称",
@@ -2219,7 +2363,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "zh-TW": {
     "board_name_placeholder": "白板名稱",
@@ -2336,7 +2488,15 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   },
   "pl": {
     "board_name_placeholder": "Nazwa tablicy",
@@ -2453,6 +2613,14 @@
     "display_name_invalid": "Use up to 32 characters without control characters.",
     "display_name_saved": "Saved on this browser.",
     "display_name_not_saved": "Browser storage is unavailable. This name will not survive a reload.",
-    "display_name_retry": "Name change was not applied. Wait a few seconds and save again."
+    "display_name_retry": "Name change was not applied. Wait a few seconds and save again.",
+    "delete_board": "Delete board",
+    "delete_board_warning": "Delete this board and all saved drawings? This cannot be undone. Everyone viewing this board will return to the home page.",
+    "board_admin_key": "Board admin key",
+    "delete_board_protected": "The public board cannot be deleted.",
+    "delete_board_owner_required": "Only the creator can delete this board. Older boards require an administrator.",
+    "deleting_board": "Deleting board…",
+    "delete_board_denied": "Deletion denied. Check the admin key or use the browser that created this board.",
+    "delete_board_failed": "The board could not be deleted. Please try again."
   }
 }

@@ -1,4 +1,5 @@
 import { MutationType } from "../../client-data/js/message_tool_metadata.js";
+import { boundaryReason } from "../http/boundary_errors.mjs";
 import observability from "../observability/index.mjs";
 import { readStoredSvgSeq } from "../persistence/svg_board_store.mjs";
 import { canAccessBoard, normalizeBoardName } from "./policy.mjs";
@@ -206,7 +207,10 @@ async function prepareConnectionReplay(
       } catch (error) {
         return {
           ok: false,
-          reason: "error",
+          reason:
+            boundaryReason(error) === "board_deleted"
+              ? "board_deleted"
+              : "error",
           boardName,
           baselineSeq,
           latestSeq,

@@ -169,3 +169,6 @@ export const TURNSTILE_VALIDATION_WINDOW_MS = parseIntegerEnv(
 
 /** Optional board name used by the root route redirect. */
 export const DEFAULT_BOARD = parseStringEnv("WBO_DEFAULT_BOARD", undefined);
+
+/** Optional administrator key for deleting boards without recorded ownership. */
+export const BOARD_ADMIN_KEY = parseStringEnv("WBO_BOARD_ADMIN_KEY", "");

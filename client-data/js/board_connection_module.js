@@ -243,6 +243,20 @@ export class ConnectionModule {
           await Tools.replay.refreshAuthoritativeBaseline();
           Tools.replay.refreshBaselineBeforeConnect = false;
         } catch (error) {
+          if (
+            error &&
+            typeof error === "object" &&
+            "status" in error &&
+            error.status === 410
+          ) {
+            this.state = "disconnected";
+            if (reusableSocket) BoardConnection.closeSocket(reusableSocket);
+            this.socket = null;
+            void import("./board_management.js").then((module) =>
+              module.leaveDeletedBoard(Tools.identity.boardName),
+            );
+            return;
+          }
           const nextReconnectDelayMs = 1000;
           this.logBoardEvent("warn", "replay.baseline_refresh_failed", {
             errorName: error instanceof Error ? error.name : typeof error,
@@ -346,6 +360,14 @@ export class ConnectionModule {
           authoritativeSeq: Tools.replay.authoritativeSeq,
         });
         Tools.connection.state = "disconnected";
+        if (reason === "board_deleted") {
+          Tools.connection.socket = null;
+          BoardConnection.closeSocket(socket);
+          void import("./board_management.js").then((module) =>
+            module.leaveDeletedBoard(Tools.identity.boardName),
+          );
+          return;
+        }
         if (reason === "baseline_not_replayable") {
           this.logBoardEvent("warn", "replay.baseline_not_replayable", {
             authoritativeSeq: Tools.replay.authoritativeSeq,
@@ -364,6 +386,13 @@ export class ConnectionModule {
       });
       socket.on(SocketEvents.USER_JOINED, function onUserJoined(user) {
         Tools.presence.upsertConnectedUser(user);
+      });
+      socket.on(SocketEvents.BOARD_DELETED, function onBoardDeleted(payload) {
+        if (payload.boardName !== Tools.identity.boardName) return;
+        BoardConnection.closeSocket(socket);
+        void import("./board_management.js").then((module) =>
+          module.leaveDeletedBoard(payload.boardName),
+        );
       });
       socket.on(SocketEvents.USER_LEFT, function onUserLeft(user) {
         Tools.presence.removeConnectedUser(user.socketId);

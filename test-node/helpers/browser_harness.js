@@ -193,6 +193,7 @@ function installBrowserHarness(options = {}) {
 
   /** @type {Record<string, unknown>} */
   const windowSlots = {
+    visualViewport: undefined,
     innerWidth: options.innerWidth || 1024,
     innerHeight: options.innerHeight || 768,
     document: activeDocument,

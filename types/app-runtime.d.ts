@@ -386,6 +386,7 @@ export type UserReportedPayload = {
 };
 
 export type ClientSocketIncomingEventMap = {
+  [SocketEvents.BOARD_DELETED]: { boardName: string };
   [SocketEvents.BOARDSTATE]: AppBoardState;
   [SocketEvents.BROADCAST]: IncomingBroadcast;
   [SocketEvents.CONNECT]: undefined;

@@ -2,6 +2,13 @@ import * as socketIO from "socket.io";
 import { normalizeDisplayName } from "../../client-data/js/display_name.js";
 import { SocketEvents } from "../../client-data/js/socket_events.js";
 import { BoardData } from "../board/data.mjs";
+import { drainBoardSaves } from "../board/data_persistence.mjs";
+import { getBoardSession } from "../board/session.mjs";
+import { BoundaryError } from "../http/boundary_errors.mjs";
+import {
+  assertBoardActive,
+  isBoardDeleting,
+} from "../persistence/board_lifecycle.mjs";
 import {
   deleteLoadedBoard,
   discardPinnedReplayBaselinesBefore,
@@ -430,6 +437,8 @@ async function startIO(app, config) {
  * @returns {Promise<BoardData>}
  */
 function getBoard(name, config) {
+  if (isBoardDeleting(name, config))
+    return Promise.reject(new BoundaryError(410, "board_deleted"));
   const loadedBoard = getLoadedBoard(name);
   if (loadedBoard) {
     if (logger.isEnabled("debug")) {
@@ -439,17 +448,22 @@ function getBoard(name, config) {
     }
     return loadedBoard;
   } else {
-    const board = BoardData.load(name, config).then((loaded) => {
-      /**
-       * @param {{actualFileSeq?: number, durationMs?: number, saveTargetSeq?: number}} details
-       * @returns {Promise<void>}
-       */
-      loaded.onStaleSave = function onStaleSave(details) {
-        return handleStaleBoardSave(loaded, details);
-      };
-      return loaded;
-    });
+    const board = assertBoardActive(name, config)
+      .then(() => BoardData.load(name, config))
+      .then((loaded) => {
+        /**
+         * @param {{actualFileSeq?: number, durationMs?: number, saveTargetSeq?: number}} details
+         * @returns {Promise<void>}
+         */
+        loaded.onStaleSave = function onStaleSave(details) {
+          return handleStaleBoardSave(loaded, details);
+        };
+        return loaded;
+      });
     setLoadedBoard(name, board);
+    void board.catch(() => {
+      if (getLoadedBoard(name) === board) deleteLoadedBoard(name);
+    });
     updateLoadedBoardsGauge();
     if (logger.isEnabled("debug")) {
       logger.debug("board.cache_miss", {
@@ -458,6 +472,27 @@ function getBoard(name, config) {
     }
     return board;
   }
+}
+
+/** @param {string} name @returns {Promise<() => void>} */
+export async function freezeBoardForDeletion(name) {
+  const pending = getLoadedBoard(name);
+  const board = pending ? await pending : null;
+  if (board) {
+    board.dispose();
+    await getBoardSession(board).stop();
+  }
+  await drainBoardSaves();
+  return () => {
+    const sockets = board ? detachBoardSockets(board) : [];
+    deleteLoadedBoard(name);
+    clearBoardUsers(name);
+    updateLoadedBoardsGauge();
+    sockets.forEach((socket) => {
+      socket.emit(SocketEvents.BOARD_DELETED, { boardName: name });
+      closeSocket(socket, "board_deleted", { board: name });
+    });
+  };
 }
 
 const socketBroadcastRuntime = {
@@ -491,6 +526,10 @@ async function bootstrapSocketBoard(socket, replay, config) {
       }),
     },
     async function traceConnectBoard() {
+      if (board.disposed || isBoardDeleting(boardName, config)) {
+        closeSocket(socket, "board_deleted", { board: boardName });
+        return;
+      }
       if (!socket.rooms.has(boardName)) socket.join(boardName);
       if (logger.isEnabled("debug")) {
         logger.debug(

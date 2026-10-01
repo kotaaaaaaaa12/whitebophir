@@ -19,6 +19,7 @@ import { commitCloudMutations } from "../persistence/cloud_storage.mjs";
 /**
  * @typedef {{
  *   board: BoardSessionBoard,
+ *   stop: () => Promise<void>,
  *   acceptPersistentMutation: (
  *     mutation: NormalizedMessageData,
  *     nowMs?: number,
@@ -47,10 +48,16 @@ const BOARD_SESSIONS = new WeakMap();
  */
 export function createBoardSession(board) {
   const queue = new SerialTaskQueue();
+  let stopped = false;
   return {
     board,
+    async stop() {
+      stopped = true;
+      await queue.runExclusive(() => {});
+    },
     async acceptPersistentMutation(mutation, nowMs = Date.now()) {
       return queue.runExclusive(async () => {
+        if (stopped) return { ok: false, reason: "board_deleted" };
         consumePendingMutationEffects(
           board,
           board.consumePendingRejectedMutationEffects,

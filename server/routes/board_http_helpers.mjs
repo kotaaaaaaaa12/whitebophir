@@ -167,20 +167,22 @@ function boardDocumentLocation(config, boardName, search = "") {
  * @param {HttpRequest} request
  * @param {HttpResponse} response
  * @param {URL} parsedUrl
- * @returns {void}
+ * @returns {string}
  */
 function ensureBoardUserSecretCookie(request, response, parsedUrl) {
   const existingUserSecret = getUserSecretFromCookieHeader(
     request.headers.cookie,
   );
-  if (existingUserSecret !== "") return;
+  if (existingUserSecret !== "") return existingUserSecret;
+  const secret = generateUserSecret();
   appendSetCookieHeader(
     response,
-    serializeUserSecretCookie(generateUserSecret(), {
+    serializeUserSecretCookie(secret, {
       path: getUserSecretCookiePath(parsedUrl.pathname),
       secure: requestScheme(request) === "https",
     }),
   );
+  return secret;
 }
 
 /**

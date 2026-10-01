@@ -11,6 +11,7 @@ import {
   serveBoardSvg,
 } from "./routes/board_assets.mjs";
 import { redirectBoardQuery, serveBoardPage } from "./routes/board_page.mjs";
+import { manageBoard } from "./routes/board_management.mjs";
 import {
   redirectToDefaultBoard,
   redirectToRandomBoard,
@@ -35,6 +36,7 @@ const hasDot = (value) => typeof value === "string" && value.includes(".");
  */
 function createWhiteboardHttpHandler() {
   return routeHttpRequests([
+    route("/api/boards/{board}", manageBoard, "board_management"),
     route("/boards", redirectBoardQuery, "boards_redirect"),
     route("/boards/", rejectMissingBoardName, "board_page"),
     route("/boards/{board}.svg", serveBoardSvg, "board_svg"),

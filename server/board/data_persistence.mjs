@@ -291,6 +291,11 @@ async function saveBoard(board) {
   return boardSaveQueue.runExclusive(board._unsafe_save.bind(board));
 }
 
+/** Wait for saves already admitted before disposing a board. */
+export async function drainBoardSaves() {
+  await boardSaveQueue.runExclusive(() => {});
+}
+
 /**
  * @param {BoardData} board
  * @returns {Promise<BoardSaveResult>}

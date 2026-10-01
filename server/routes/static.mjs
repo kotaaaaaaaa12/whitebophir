@@ -1,6 +1,7 @@
 import { canonicalizeBoardName } from "../../client-data/js/board_name.js";
 import { serveError } from "../http/observation.mjs";
 import { boardExists } from "../persistence/svg_board_store.mjs";
+import { readBoardLifecycle } from "../persistence/board_lifecycle.mjs";
 import { buildRandomBoardName } from "../shared/pronounceable_name.mjs";
 import {
   annotateBoardRequest,
@@ -86,7 +87,11 @@ async function redirectToRandomBoard(ctx) {
 async function allocateRandomBoardName(config) {
   while (true) {
     const boardName = buildRandomBoardName();
-    if (!(await boardExists(boardName, config))) return boardName;
+    if (
+      !(await boardExists(boardName, config)) &&
+      !(await readBoardLifecycle(boardName, config))
+    )
+      return boardName;
   }
 }
 

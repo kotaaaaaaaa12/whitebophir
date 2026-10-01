@@ -1,6 +1,7 @@
 import { getLoadedBoard } from "../board/registry.mjs";
 import { respondWithErrorPage } from "../http/observation.mjs";
 import observability from "../observability/index.mjs";
+import { registerBoardCreator } from "../persistence/board_lifecycle.mjs";
 import {
   readBoardDocumentState,
   streamServedBaseline,
@@ -69,6 +70,12 @@ async function serveBoardPage(ctx) {
     return;
   }
 
+  const secret = ensureBoardUserSecretCookie(
+    ctx.request,
+    ctx.response,
+    ctx.publicUrl,
+  );
+  await registerBoardCreator(pageRequest.boardName, secret, ctx.runtime.config);
   if (await serveLoadedBoardCacheHit(ctx, pageRequest)) return;
 
   const document = await readBoardDocumentForPage(ctx, pageRequest);
@@ -83,7 +90,6 @@ async function serveBoardPage(ctx) {
     document.metadata.seq || 0,
     ctx.runtime.config,
   );
-  ensureBoardUserSecretCookie(ctx.request, ctx.response, ctx.publicUrl);
   await renderBoardDocument(ctx, pageRequest, document);
 }
 

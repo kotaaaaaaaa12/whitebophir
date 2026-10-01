@@ -3,6 +3,7 @@
 interface Env {
   AUTH_SECRET_KEY?: string;
   WBO_BOARD_MODERATORS?: string;
+  WBO_BOARD_ADMIN_KEY?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
 }

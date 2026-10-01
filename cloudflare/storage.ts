@@ -56,6 +56,8 @@ export class WhiteboardStorage extends DurableObject<Env> {
     ); CREATE TABLE IF NOT EXISTS mutations (
       board TEXT NOT NULL, seq INTEGER NOT NULL, entry TEXT NOT NULL,
       PRIMARY KEY (board, seq)
+    ); CREATE TABLE IF NOT EXISTS lifecycle (
+      name TEXT PRIMARY KEY, owner TEXT, deleted INTEGER NOT NULL DEFAULT 0
     );`);
   }
 
@@ -72,11 +74,75 @@ export class WhiteboardStorage extends DurableObject<Env> {
         .toArray();
       return Response.json(rows.map((row) => row.name));
     }
-    const match = /^\/(snapshot|restore|journal)\/([^/]+)$/.exec(url.pathname);
+    const match = /^\/(snapshot|restore|journal|lifecycle)\/([^/]+)$/.exec(
+      url.pathname,
+    );
     const name = match ? decodeAndValidateBoardName(match[2]) : null;
     if (!match || !name)
       return new Response("Invalid storage path", { status: 400 });
     const prefix = `boards/${encodeURIComponent(name)}/`;
+    if (match[1] === "lifecycle") {
+      if (request.method === "GET") return Response.json(this.lifecycle(name));
+      if (request.method === "POST") {
+        let input: { owner?: unknown; mayClaim?: unknown };
+        try {
+          input = (await boundedJson(request)) as typeof input;
+        } catch {
+          return new Response("Invalid owner", { status: 400 });
+        }
+        if (
+          !input ||
+          typeof input.owner !== "string" ||
+          !/^[0-9a-f]{64}$/.test(input.owner)
+        )
+          return new Response("Invalid owner", { status: 400 });
+        this.ctx.storage.transactionSync(() => {
+          const exists =
+            this.ctx.storage.sql
+              .exec("SELECT name FROM boards WHERE name = ?", name)
+              .toArray().length > 0;
+          this.ctx.storage.sql.exec(
+            "INSERT OR IGNORE INTO lifecycle (name, owner) VALUES (?, ?)",
+            name,
+            input.mayClaim === true && !exists ? (input.owner as string) : null,
+          );
+        });
+        return Response.json(this.lifecycle(name));
+      }
+      if (request.method === "DELETE") {
+        // Serialize deletion behind any in-flight snapshot uploads. Tombstones
+        // reject delayed writes and retain no drawing content.
+        const deletion = this.snapshotQueue.then(async () => {
+          this.ctx.storage.transactionSync(() => {
+            this.ctx.storage.sql.exec(
+              "INSERT INTO lifecycle (name, deleted) VALUES (?, 1) ON CONFLICT(name) DO UPDATE SET deleted = 1",
+              name,
+            );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM mutations WHERE board = ?",
+              name,
+            );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM boards WHERE name = ?",
+              name,
+            );
+          });
+          for (;;) {
+            const objects = await this.env.BOARDS.list({ prefix, limit: 100 });
+            if (objects.objects.length === 0) break;
+            await this.env.BOARDS.delete(
+              objects.objects.map((object) => object.key),
+            );
+          }
+          return new Response(null, { status: 204 });
+        });
+        this.snapshotQueue = deletion.catch(() => undefined);
+        return deletion;
+      }
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (this.lifecycle(name)?.deleted)
+      return new Response("Board deleted", { status: 410 });
     if (match[1] === "restore" && request.method === "GET") {
       const row = this.board(name);
       const object = await this.env.BOARDS.get(
@@ -123,6 +189,8 @@ export class WhiteboardStorage extends DurableObject<Env> {
         return new Response("Invalid journal entries", { status: 400 });
       }
       try {
+        if (this.lifecycle(name)?.deleted)
+          return new Response("Board deleted", { status: 410 });
         this.ctx.storage.transactionSync(() => {
           let row = this.board(name);
           for (const entry of entries) {
@@ -166,6 +234,8 @@ export class WhiteboardStorage extends DurableObject<Env> {
     }
     if (match[1] === "snapshot" && request.method === "PUT") {
       const save = this.snapshotQueue.then(async () => {
+        if (this.lifecycle(name)?.deleted)
+          return new Response("Board deleted", { status: 410 });
         const seq = Number(url.searchParams.get("seq"));
         const length = Number(request.headers.get("content-length"));
         const row = this.board(name);
@@ -221,6 +291,19 @@ export class WhiteboardStorage extends DurableObject<Env> {
       return save;
     }
     return new Response("Method not allowed", { status: 405 });
+  }
+
+  private lifecycle(
+    name: string,
+  ): { owner: string | null; deleted: number } | null {
+    return (
+      this.ctx.storage.sql
+        .exec<{ owner: string | null; deleted: number }>(
+          "SELECT owner, deleted FROM lifecycle WHERE name = ?",
+          name,
+        )
+        .toArray()[0] ?? null
+    );
   }
 
   private board(name: string): {

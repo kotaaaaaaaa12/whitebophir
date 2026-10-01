@@ -24,6 +24,9 @@ export class WhiteboardContainer extends Container<Env> {
     ...(this.env.WBO_BOARD_MODERATORS
       ? { WBO_BOARD_MODERATORS: this.env.WBO_BOARD_MODERATORS }
       : {}),
+    ...(this.env.WBO_BOARD_ADMIN_KEY
+      ? { WBO_BOARD_ADMIN_KEY: this.env.WBO_BOARD_ADMIN_KEY }
+      : {}),
     ...(this.env.TURNSTILE_SITE_KEY
       ? { TURNSTILE_SITE_KEY: this.env.TURNSTILE_SITE_KEY }
       : {}),
