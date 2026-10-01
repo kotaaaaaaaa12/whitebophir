@@ -3,12 +3,6 @@ import { normalizeDisplayName } from "../../client-data/js/display_name.js";
 import { SocketEvents } from "../../client-data/js/socket_events.js";
 import { BoardData } from "../board/data.mjs";
 import { drainBoardSaves } from "../board/data_persistence.mjs";
-import { getBoardSession } from "../board/session.mjs";
-import { BoundaryError } from "../http/boundary_errors.mjs";
-import {
-  assertBoardActive,
-  isBoardDeleting,
-} from "../persistence/board_lifecycle.mjs";
 import {
   deleteLoadedBoard,
   discardPinnedReplayBaselinesBefore,
@@ -19,7 +13,13 @@ import {
   resetBoardRegistry,
   setLoadedBoard,
 } from "../board/registry.mjs";
+import { getBoardSession } from "../board/session.mjs";
+import { BoundaryError } from "../http/boundary_errors.mjs";
 import observability from "../observability/index.mjs";
+import {
+  assertBoardActive,
+  isBoardDeleting,
+} from "../persistence/board_lifecycle.mjs";
 import { resetBans } from "./bans.mjs";
 import {
   boardMutationTraceAttributes,
@@ -82,6 +82,14 @@ const { logger, metrics, tracing } = observability;
 const activeSockets = new Map();
 /** @type {Set<string>} */
 const syncedPersistentSockets = new Set();
+/** @param {string} secret */
+export function refreshBrowserAccess(secret) {
+  for (const socket of activeSockets.values()) {
+    if (getSocketUserSecret(socket) !== secret) continue;
+    socket.emit(SocketEvents.ADMIN_ACCESS_CHANGED);
+    socket.disconnect(true);
+  }
+}
 let connectedUsersTotal = 0;
 let invalidIpSourceLogged = false;
 /** @type {import("socket.io").Server | undefined} */

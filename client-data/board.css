@@ -437,6 +437,46 @@ dialog.wbo-native-dialog::backdrop {
   margin-top: 14px;
 }
 
+.custom-color-dialog form,
+.admin-session-dialog form {
+  display: grid;
+  gap: 10px;
+}
+
+.custom-color-dialog input[type="text"],
+.admin-session-dialog input[type="password"] {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid var(--board-control-border-strong);
+  border-radius: 2px;
+  font-size: 16px;
+}
+
+.custom-color-preview {
+  height: 40px;
+  border: 1px solid var(--board-control-border-strong);
+  border-radius: 2px;
+}
+
+.custom-color-channel {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.custom-color-channel input {
+  width: 100%;
+  margin: 0;
+}
+.custom-color-channel output {
+  text-align: right;
+}
+
 .wbo-dialog-button {
   display: inline-flex;
   align-items: center;

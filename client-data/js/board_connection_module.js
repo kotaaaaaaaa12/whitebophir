@@ -387,6 +387,10 @@ export class ConnectionModule {
       socket.on(SocketEvents.USER_JOINED, function onUserJoined(user) {
         Tools.presence.upsertConnectedUser(user);
       });
+      socket.on(SocketEvents.ADMIN_ACCESS_CHANGED, () => {
+        BoardConnection.closeSocket(socket);
+        window.location.reload();
+      });
       socket.on(SocketEvents.BOARD_DELETED, function onBoardDeleted(payload) {
         if (payload.boardName !== Tools.identity.boardName) return;
         BoardConnection.closeSocket(socket);

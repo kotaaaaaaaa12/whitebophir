@@ -4,6 +4,7 @@ import {
   decodeBoardName,
   isValidBoardName,
 } from "../../client-data/js/board_name.js";
+import { adminSessionFromCookie } from "../auth/admin_session.mjs";
 import { BoardPermissions } from "../auth/board_capabilities.mjs";
 import {
   appendSetCookieHeader,
@@ -200,7 +201,11 @@ function boardPermissionsForRequest(ctx, boardName) {
   return BoardPermissions.forBoard({
     config,
     boardName,
-    userInfo: { token: ctx.url.searchParams.get("token"), userSecret },
+    userInfo: {
+      token: ctx.url.searchParams.get("token"),
+      userSecret,
+      adminSession: adminSessionFromCookie(ctx.request.headers.cookie),
+    },
     // Render the served board state ban-aware too, so a banned user's HTML
     // (board-state script + toolbar) is read-only from first paint, matching
     // the socket, and carries the same one-shot access refresh delay.
@@ -220,8 +225,8 @@ export {
   annotateBoardRequest,
   boardDocumentLocation,
   boardOperationTraceAttributes,
-  boardPermissionsForRequest,
   boardPageETag,
+  boardPermissionsForRequest,
   ensureBoardUserSecretCookie,
   matchesIfNoneMatch,
   parseBoardPageETagCandidates,

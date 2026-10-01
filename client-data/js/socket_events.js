@@ -1,4 +1,5 @@
 export const SocketEvents = Object.freeze({
+  ADMIN_ACCESS_CHANGED: "admin_access_changed",
   BOARDSTATE: "boardstate",
   BOARD_DELETED: "board_deleted",
   BROADCAST: "broadcast",

@@ -1,3 +1,7 @@
+import {
+  adminSessionExpiry,
+  adminSessionFromCookie,
+} from "../auth/admin_session.mjs";
 import { getUserSecretFromCookieHeader } from "../auth/user_secret_cookie.mjs";
 import {
   eraseBoard,
@@ -21,6 +25,12 @@ export async function manageBoard(ctx) {
   boardPermissionsForRequest(ctx, name).requireOpen();
   const state = await readBoardLifecycle(name, config);
   const secret = getUserSecretFromCookieHeader(ctx.request.headers.cookie);
+  const admin =
+    adminSessionExpiry(
+      adminSessionFromCookie(ctx.request.headers.cookie),
+      secret,
+      config,
+    )() !== null;
   const owned = !!secret && state?.owner === ownerDigest(secret);
   const protectedBoard = isProtectedBoard(name, config);
   ctx.response.setHeader("Cache-Control", "private, no-store");
@@ -28,7 +38,7 @@ export async function manageBoard(ctx) {
   if (ctx.request.method === "GET") {
     ctx.response.end(
       JSON.stringify({
-        canDelete: owned && !protectedBoard,
+        canDelete: (owned || admin) && !protectedBoard,
         protected: protectedBoard,
         deleted: !!state?.deleted,
         adminKeyEnabled: !!config.BOARD_ADMIN_KEY,
@@ -54,6 +64,7 @@ export async function manageBoard(ctx) {
   if (
     protectedBoard ||
     (!owned &&
+      !admin &&
       !validBoardAdminKey(ctx.request.headers["x-board-admin-key"], config))
   ) {
     ctx.response.writeHead(403);

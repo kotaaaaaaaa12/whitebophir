@@ -4,11 +4,12 @@ import {
   getToolId,
 } from "../../client-data/js/message_tool_metadata.js";
 import RateLimitCommon from "../../client-data/js/rate_limit_common.js";
+import { adminSessionFromCookie } from "../auth/admin_session.mjs";
 import { BoardPermissions } from "../auth/board_capabilities.mjs";
 import observability from "../observability/index.mjs";
 import { getEditBanExpiresAt } from "./bans.mjs";
 import { normalizeIncomingMessage } from "./message_validation.mjs";
-import { getSocketUserSecret } from "./request.mjs";
+import { getSocketHeaderValue, getSocketUserSecret } from "./request.mjs";
 import { getTemporaryModeratorExpiresAt } from "./temporary_moderators.mjs";
 
 const { logger, metrics, tracing } = observability;
@@ -24,6 +25,7 @@ const { logger, metrics, tracing } = observability;
 /**
  * @typedef {{
  *   AUTH_SECRET_KEY: string,
+ *   BOARD_ADMIN_KEY?: string,
  *   BLOCKED_TOOLS: string[],
  *   IP_SOURCE: string,
  *   MAX_BOARD_SIZE: number,
@@ -384,7 +386,13 @@ function boardPermissionsForSocket(config, boardName, socket) {
   const permissions = BoardPermissions.forBoard({
     config,
     boardName,
-    userInfo: { token: getSocketToken(socket), userSecret },
+    userInfo: {
+      token: getSocketToken(socket),
+      userSecret,
+      adminSession: adminSessionFromCookie(
+        getSocketHeaderValue(socket, "cookie"),
+      ),
+    },
     // Lazy + live: only resolved when a capability query depends on the ban
     // (so canOpen never needs the IP), and re-read on every query so a ban and
     // its expiry take effect without reconnecting. The expiry is also exposed
@@ -507,11 +515,10 @@ export {
   canAccessBoard,
   canApplyBoardMessage,
   canBanOnBoard,
+  canEditBoard,
   canGrantTemporaryModeratorOnBoard,
   canReportOnBoard,
-  canEditBoard,
   clientIpFallback,
-  resolveRequestClientIpSafe,
   countConstructiveActions,
   countDestructiveActions,
   countTextCreationActions,
@@ -520,4 +527,5 @@ export {
   normalizeBoardName,
   normalizeBroadcastData,
   parseForwardedChain,
+  resolveRequestClientIpSafe,
 };

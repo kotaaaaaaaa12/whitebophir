@@ -385,10 +385,9 @@ export class BoardShellModule {
     elem.title = label;
     elem.setAttribute("aria-label", label);
     elem.addEventListener("click", () => {
-      const colorChooser = document.getElementById("chooseColor");
-      if (colorChooser instanceof HTMLInputElement) {
-        colorChooser.click();
-      }
+      void import("./custom_color.js").then((module) =>
+        module.chooseCustomColor(Tools),
+      );
     });
     colorPresetContainer.appendChild(elem);
     return elem;

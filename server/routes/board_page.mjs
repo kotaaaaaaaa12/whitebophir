@@ -10,8 +10,8 @@ import {
   annotateBoardRequest,
   boardDocumentLocation,
   boardOperationTraceAttributes,
-  boardPermissionsForRequest,
   boardPageETag,
+  boardPermissionsForRequest,
   ensureBoardUserSecretCookie,
   matchesIfNoneMatch,
   parseBoardPageETagCandidates,
@@ -233,7 +233,11 @@ function respondWithBoardPageNotModified(
   ctx.response.writeHead(304, {
     "Cache-Control": ctx.runtime.boardTemplate.cacheControl(),
     ETag: etag || boardPageETag(seq),
-    Vary: boardHtmlVaryHeader(ctx.url, boardState),
+    Vary: boardHtmlVaryHeader(
+      ctx.url,
+      boardState,
+      !!ctx.runtime.config.BOARD_ADMIN_KEY,
+    ),
   });
   ctx.response.end();
 }
@@ -254,12 +258,13 @@ function boardHtmlVariesByCookie(boardState) {
 /**
  * @param {URL} parsedUrl
  * @param {AppBoardState} boardState
+ * @param {boolean} [adminEnabled]
  * @returns {string}
  */
-function boardHtmlVaryHeader(parsedUrl, boardState) {
+function boardHtmlVaryHeader(parsedUrl, boardState, adminEnabled = false) {
   const vary = [];
   if (!parsedUrl.searchParams.get("lang")) vary.push("Accept-Language");
-  if (boardHtmlVariesByCookie(boardState)) vary.push("Cookie");
+  if (adminEnabled || boardHtmlVariesByCookie(boardState)) vary.push("Cookie");
   vary.push("Accept-Encoding");
   return vary.join(", ");
 }
@@ -275,14 +280,14 @@ async function renderBoardDocument(ctx, pageRequest, document) {
     name: pageRequest.boardName,
     readonly: document.metadata.readonly,
   });
-  // Board HTML remains public and seq-cacheable. If a shared proxy serves a
-  // non-moderator shell to a cookie-configured moderator, the UI may initially
-  // omit admin-only tools, but socket permission checks still grant moderator
-  // abilities such as report-to-ban.
+  // Administrator-enabled deployments must vary even writable public shells
+  // by cookie, so sign in/out cannot reuse a shell with stale privileges.
   const renderOptions = {
     etag: boardPageETag(document.metadata.seq || 0),
     boardState,
-    varyCookie: boardHtmlVariesByCookie(boardState),
+    varyCookie:
+      !!ctx.runtime.config.BOARD_ADMIN_KEY ||
+      boardHtmlVariesByCookie(boardState),
   };
 
   if (document.source === "svg" || document.source === "svg_backup") {

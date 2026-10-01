@@ -8,7 +8,7 @@ const USER_SECRET_PATTERN = /^[0-9a-f]{32}$/i;
  * @param {string | string[] | undefined} value
  * @returns {{[name: string]: string}}
  */
-function parseCookieHeader(value) {
+export function parseCookieHeader(value) {
   const headerValue = Array.isArray(value) ? value[0] : value;
   if (typeof headerValue !== "string" || headerValue.trim() === "") {
     return {};

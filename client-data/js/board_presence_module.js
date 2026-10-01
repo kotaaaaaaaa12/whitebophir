@@ -6,8 +6,8 @@ import {
   readStoredDisplayNamePreference,
   saveStoredDisplayNamePreference,
 } from "./board_preferences.js";
-import { normalizeDisplayName } from "./display_name.js";
 import { VIEWPORT_HASH_SCALE_DECIMALS } from "./board_viewport.js";
+import { normalizeDisplayName } from "./display_name.js";
 import { getMessageActivityPoint } from "./message_activity_point.js";
 import MessageCommon from "./message_common.js";
 import { LIMITS } from "./message_limits.js";
@@ -238,6 +238,18 @@ export class PresenceModule {
     }
     this.panelOpen = toggle.getAttribute("aria-expanded") === "true";
     initDisplayNameForm(this.getTools);
+    const adminButton = document.getElementById("adminSessionButton");
+    if (
+      adminButton instanceof HTMLButtonElement &&
+      adminButton.dataset.adminBound !== "true"
+    ) {
+      adminButton.dataset.adminBound = "true";
+      adminButton.addEventListener("click", () => {
+        void import("./admin_session.js").then((module) =>
+          module.manageAdministrator(this.getTools()),
+        );
+      });
+    }
     const deleteButton = document.getElementById("deleteBoardButton");
     if (
       deleteButton instanceof HTMLButtonElement &&

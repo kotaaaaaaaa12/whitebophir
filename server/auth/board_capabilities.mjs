@@ -8,12 +8,13 @@ import {
   TOOL_CODE_BY_ID,
 } from "../../client-data/tools/manifest.js";
 import { forbidden } from "../http/boundary_errors.mjs";
+import { adminSessionExpiry } from "./admin_session.mjs";
 import { roleInBoard } from "./board_jwt.mjs";
 import { isConfiguredModerator } from "./board_moderators.mjs";
 
-/** @typedef {{AUTH_SECRET_KEY: string, BOARD_MODERATORS?: Map<string, Set<string>>}} BoardCapabilityConfig */
+/** @typedef {{AUTH_SECRET_KEY: string, BOARD_ADMIN_KEY?: string, BOARD_MODERATORS?: Map<string, Set<string>>}} BoardCapabilityConfig */
 /** @typedef {{name: string, readonly?: boolean, isReadOnly?: () => boolean}} BoardCapabilityBoard */
-/** @typedef {{token?: string | null, userSecret?: string | null}} BoardCapabilityUserInfo */
+/** @typedef {{token?: string | null, userSecret?: string | null, adminSession?: string | null}} BoardCapabilityUserInfo */
 /** @typedef {() => boolean} IsBannedPredicate */
 /** @typedef {() => number | null} GetBanExpiresAt */
 /** @typedef {() => number | null} GetTemporaryModeratorExpiresAt */
@@ -98,6 +99,11 @@ function forBoard(input) {
   const jwtEnabled = input.config.AUTH_SECRET_KEY !== "";
   const role = roleForBoard(input.config, input.boardName, input.userInfo);
   const permanentModerator = isClearCapableRole(role);
+  const adminExpiresAt = adminSessionExpiry(
+    input.userInfo?.adminSession,
+    input.userInfo?.userSecret,
+    input.config,
+  );
   const fallbackIsBanned = input.isBanned || (() => false);
 
   /**
@@ -109,6 +115,14 @@ function forBoard(input) {
    */
   function readAccessState() {
     const now = Date.now();
+    const adminExpiry = adminExpiresAt();
+    if (adminExpiry !== null) {
+      return {
+        moderator: true,
+        banned: false,
+        refreshAfterMs: Math.floor(adminExpiry - now),
+      };
+    }
     const temporaryModeratorExpiresAt = permanentModerator
       ? 0
       : Number(input.getTemporaryModeratorExpiresAt?.());

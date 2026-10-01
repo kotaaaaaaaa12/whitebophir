@@ -4,14 +4,15 @@ import { fileURLToPath } from "node:url";
 import * as productionConfig from "./configuration.mjs";
 import { route, routeHttpRequests } from "./http/dispatch.mjs";
 import observability from "./observability/index.mjs";
+import { manageAdminSession } from "./routes/admin_session.mjs";
 import {
   downloadBoard,
   rejectMissingBoardName,
   serveBoardPreview,
   serveBoardSvg,
 } from "./routes/board_assets.mjs";
-import { redirectBoardQuery, serveBoardPage } from "./routes/board_page.mjs";
 import { manageBoard } from "./routes/board_management.mjs";
+import { redirectBoardQuery, serveBoardPage } from "./routes/board_page.mjs";
 import {
   redirectToDefaultBoard,
   redirectToRandomBoard,
@@ -36,6 +37,7 @@ const hasDot = (value) => typeof value === "string" && value.includes(".");
  */
 function createWhiteboardHttpHandler() {
   return routeHttpRequests([
+    route("/api/admin", manageAdminSession, "admin_session"),
     route("/api/boards/{board}", manageBoard, "board_management"),
     route("/boards", redirectBoardQuery, "boards_redirect"),
     route("/boards/", rejectMissingBoardName, "board_page"),
