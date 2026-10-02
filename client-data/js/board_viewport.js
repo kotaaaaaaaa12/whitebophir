@@ -98,7 +98,7 @@ const TOUCH_EVENT_NAMES = [
 /** @typedef {"app-gesture" | "native-pan"} ViewportTouchPolicy */
 /** @typedef {"none" | "browser" | "viewport-gesture"} TouchGestureOwner */
 /** @typedef {Pick<import("../../types/app-runtime").AppToolsState, "config" | "coordinates" | "dom" | "preferences" | "toolRegistry" | "viewportState">} ViewportRuntime */
-/** @typedef {{startPinchPan(event: TouchEvent): void, updatePinchPan(event: TouchEvent): void, endPinchPan(): void, cancelPinchPan(): void}} GestureCoordinatorHandlers */
+/** @typedef {{startPinchPan(event: TouchEvent): void, updatePinchPan(event: TouchEvent): void, pausePinchPan(): void, endPinchPan(): void, cancelPinchPan(): void}} GestureCoordinatorHandlers */
 /** @typedef {"touchstart" | "touchmove" | "touchend" | "touchcancel"} GestureCoordinatorEventName */
 /** @typedef {Record<GestureCoordinatorEventName, (event: TouchEvent) => void>} GestureCoordinatorEventHandlers */
 
@@ -374,7 +374,7 @@ class GestureCoordinator {
             this.handlers.endPinchPan();
             this.reset();
           } else if (event.touches.length === 1) {
-            this.handlers.cancelPinchPan();
+            this.handlers.pausePinchPan();
           }
           return;
         }
@@ -436,8 +436,12 @@ export function createViewportController(Tools) {
   let touchPolicy = "app-gesture";
   /** @type {{x: number, y: number, scrollLeft: number, scrollTop: number} | null} */
   let activePan = null;
-  /** @type {{distance: number, scale: number, boardX: number, boardY: number, firstId: number, secondId: number} | null} */
+  /** @type {{distance: number, scale: number, boardX: number, boardY: number, pageLeft: number, pageTop: number, firstId: number, secondId: number} | null} */
   let activePinchPan = null;
+  /** @type {{scale: number, clientX: number, clientY: number} | null} */
+  let pendingPinchPan = null;
+  /** @type {number | null} */
+  let pinchAnimationFrame = null;
   /** @type {(() => void) | null} */
   let temporaryPanCleanup = null;
   /** Bitset: {@link STYLE_WHEEL_KEY_MASK} (O wins if both). */
@@ -894,25 +898,11 @@ export function createViewportController(Tools) {
         (touch) => touch.identifier === activePinchPan?.secondId,
       );
       if (first && second) return [first, second];
-      activePinchPan = null;
+      pausePinchPan();
     }
     const first = event.touches[0];
     const second = event.touches[1];
     return first && second ? [first, second] : null;
-  }
-
-  /**
-   * @param {number} clientX
-   * @param {number} clientY
-   * @param {number} scale
-   * @returns {{x: number, y: number}}
-   */
-  function clientPointToBoardPoint(clientX, clientY, scale) {
-    const origin = boardClientOrigin();
-    return {
-      x: screenToBoard(clientX - origin.left, scale),
-      y: screenToBoard(clientY - origin.top, scale),
-    };
   }
 
   /**
@@ -928,16 +918,15 @@ export function createViewportController(Tools) {
     clearViewportHashSync();
     const center = midpoint(touches[0], touches[1]);
     const scale = getScale();
-    const boardPoint = clientPointToBoardPoint(
-      center.clientX,
-      center.clientY,
-      scale,
-    );
+    const origin = boardClientOrigin();
+    const scroll = documentScrollPosition();
     activePinchPan = {
       distance,
       scale,
-      boardX: boardPoint.x,
-      boardY: boardPoint.y,
+      boardX: screenToBoard(center.clientX - origin.left, scale),
+      boardY: screenToBoard(center.clientY - origin.top, scale),
+      pageLeft: origin.left + scroll.left,
+      pageTop: origin.top + scroll.top,
       firstId: touches[0].identifier,
       secondId: touches[1].identifier,
     };
@@ -955,34 +944,60 @@ export function createViewportController(Tools) {
     if (!activePinchPan) return;
     const distance = distanceBetween(touches[0], touches[1]);
     const center = midpoint(touches[0], touches[1]);
-    const scale = setScale(
-      activePinchPan.scale * (distance / activePinchPan.distance),
-    );
-    // Keep the board point that was under the initial midpoint under the
-    // current midpoint, so equal-distance two-finger moves pan without zooming.
-    const origin = boardClientOrigin();
-    const scroll = documentScrollPosition();
+    pendingPinchPan = {
+      scale: activePinchPan.scale * (distance / activePinchPan.distance),
+      clientX: center.clientX,
+      clientY: center.clientY,
+    };
+    if (pinchAnimationFrame === null) {
+      pinchAnimationFrame = window.requestAnimationFrame(() => {
+        pinchAnimationFrame = null;
+        flushPinchPan();
+      });
+    }
+  }
+
+  function flushPinchPan() {
+    if (pinchAnimationFrame !== null) {
+      window.cancelAnimationFrame(pinchAnimationFrame);
+      pinchAnimationFrame = null;
+    }
+    const pending = pendingPinchPan;
+    pendingPinchPan = null;
+    if (!activePinchPan || !pending) return;
+    const scale = setScale(pending.scale);
+    // Derive an absolute scroll target from the original page origin. Reading
+    // scroll and client geometry again after a layout write can mix positions
+    // from different frames and feed that error into the next touch update.
     panTo(
-      scroll.left +
-        origin.left +
-        activePinchPan.boardX * scale -
-        center.clientX,
-      scroll.top + origin.top + activePinchPan.boardY * scale - center.clientY,
+      activePinchPan.pageLeft + activePinchPan.boardX * scale - pending.clientX,
+      activePinchPan.pageTop + activePinchPan.boardY * scale - pending.clientY,
     );
   }
 
-  function endPinchPan() {
+  function pausePinchPan() {
+    flushPinchPan();
     activePinchPan = null;
+  }
+
+  function endPinchPan() {
+    pausePinchPan();
     scheduleViewportHashSync();
   }
 
   function cancelPinchPan() {
+    if (pinchAnimationFrame !== null) {
+      window.cancelAnimationFrame(pinchAnimationFrame);
+      pinchAnimationFrame = null;
+    }
+    pendingPinchPan = null;
     activePinchPan = null;
   }
 
   const gestureCoordinator = new GestureCoordinator({
     startPinchPan,
     updatePinchPan,
+    pausePinchPan,
     endPinchPan,
     cancelPinchPan,
   });

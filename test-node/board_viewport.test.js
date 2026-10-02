@@ -833,6 +833,7 @@ test("viewport two-finger gesture pans when midpoint moves", async () => {
     );
     board.dispatch("touchmove", move);
 
+    getBrowserHarness().flushAsync();
     assert.equal(move.defaultPrevented, true);
     assert.equal(viewport.getScale(), 0.5);
     assert.equal(env.document.documentElement.scrollLeft, 50);
@@ -868,6 +869,7 @@ test("viewport two-finger gesture pans and zooms together", async () => {
     );
     board.dispatch("touchmove", move);
 
+    getBrowserHarness().flushAsync();
     assert.equal(move.defaultPrevented, true);
     assert.equal(viewport.getScale(), 1);
     assert.equal(env.document.documentElement.scrollLeft, 260);
@@ -1133,6 +1135,7 @@ test("pinch anchors to board geometry and restarts when a finger is replaced", a
         [movedFirst, movedSecond],
       ),
     );
+    getBrowserHarness().flushAsync();
     assert.equal(viewport.getScale(), 1);
     assert.equal(env.document.documentElement.scrollLeft, 280);
     assert.equal(env.document.documentElement.scrollTop, 470);
@@ -1153,9 +1156,135 @@ test("pinch anchors to board geometry and restarts when a finger is replaced", a
         [movedFirst, replacement],
       ),
     );
+    getBrowserHarness().flushAsync();
     assert.equal(viewport.getScale(), 1);
     assert.equal(env.document.documentElement.scrollLeft, 280);
     assert.equal(env.document.documentElement.scrollTop, 470);
+  } finally {
+    env.restore();
+  }
+});
+
+test("pinch does not feed delayed scroll geometry back into its anchor", async () => {
+  const env = createViewportHashTestEnvironment("#0,0,0.500");
+  try {
+    const browser = getBrowserHarness();
+    const { createViewportController } = await loadViewportModule();
+    const tools = createViewportHashTestTools(0.5);
+    const board = createOverlayBoardElement();
+    let reportedScroll = { left: 100, top: 200 };
+    board.getBoundingClientRect = () => ({
+      left: 40 - reportedScroll.left,
+      top: 30 - reportedScroll.top,
+    });
+    attachViewportDom(tools, board);
+    env.document.documentElement.scrollLeft = 100;
+    env.document.documentElement.scrollTop = 200;
+    const viewport = createViewportController(tools);
+    viewport.install();
+    /** @param {number} distance */
+    const fingers = (distance) => [
+      createTouch(1, 120 - distance / 2, 100),
+      createTouch(2, 120 + distance / 2, 100),
+    ];
+    board.dispatch(
+      "touchstart",
+      createTouchEvent("touchstart", fingers(40), fingers(40)),
+    );
+    for (const distance of [60, 80, 60, 40, 24, 40, 80]) {
+      board.dispatch(
+        "touchmove",
+        createTouchEvent("touchmove", fingers(distance), fingers(distance)),
+      );
+      browser.flushAsync();
+      const scale = viewport.getScale();
+      assert.equal(
+        env.document.documentElement.scrollLeft,
+        40 + 360 * scale - 120,
+      );
+      assert.equal(
+        env.document.documentElement.scrollTop,
+        30 + 540 * scale - 100,
+      );
+      // Simulate geometry from an older compositor scroll position.
+      reportedScroll = { left: 100, top: 200 };
+    }
+  } finally {
+    env.restore();
+  }
+});
+
+test("pinch coalesces touch bursts and commits the final move before finger release", async () => {
+  const env = createViewportHashTestEnvironment("#0,0,0.500");
+  try {
+    const browser = getBrowserHarness();
+    const { createViewportController } = await loadViewportModule();
+    const tools = createViewportHashTestTools(0.5);
+    const { board } = attachViewportDom(tools);
+    let renders = 0;
+    board.addEventListener("wbo:viewport-layout", () => renders++, undefined);
+    const viewport = createViewportController(tools);
+    viewport.install();
+    /** @param {number} distance */
+    const fingers = (distance) => [
+      createTouch(1, 50 - distance / 2, 50),
+      createTouch(2, 50 + distance / 2, 50),
+    ];
+    board.dispatch(
+      "touchstart",
+      createTouchEvent("touchstart", fingers(40), fingers(40)),
+    );
+    for (const distance of [45, 50, 55, 60]) {
+      board.dispatch(
+        "touchmove",
+        createTouchEvent("touchmove", fingers(distance), fingers(distance)),
+      );
+    }
+    assert.equal(renders, 0);
+    browser.flushAsync();
+    assert.equal(renders, 1);
+    assert.equal(viewport.getScale(), 0.75);
+    board.dispatch(
+      "touchmove",
+      createTouchEvent("touchmove", fingers(80), fingers(80)),
+    );
+    board.dispatch(
+      "touchend",
+      createTouchEvent("touchend", [fingers(80)[0]], [fingers(80)[1]]),
+    );
+    assert.equal(viewport.getScale(), 1);
+    assert.equal(renders, 2);
+    browser.flushAsync();
+    assert.equal(renders, 2);
+    board.dispatch(
+      "touchend",
+      createTouchEvent("touchend", [], [fingers(80)[0]]),
+    );
+  } finally {
+    env.restore();
+  }
+});
+
+test("pinch cancel drops an unpainted move without leaking it into the next gesture", async () => {
+  const env = createViewportHashTestEnvironment("#0,0,0.500");
+  try {
+    const browser = getBrowserHarness();
+    const { createViewportController } = await loadViewportModule();
+    const tools = createViewportHashTestTools(0.5);
+    const { board } = attachViewportDom(tools);
+    const viewport = createViewportController(tools);
+    viewport.install();
+    const pair = [createTouch(1, 30, 50), createTouch(2, 70, 50)];
+    const moved = [createTouch(1, 10, 50), createTouch(2, 90, 50)];
+    board.dispatch("touchstart", createTouchEvent("touchstart", pair, pair));
+    board.dispatch("touchmove", createTouchEvent("touchmove", moved, moved));
+    board.dispatch("touchcancel", createTouchEvent("touchcancel", [], moved));
+    browser.flushAsync();
+    assert.equal(viewport.getScale(), 0.5);
+    board.dispatch("touchstart", createTouchEvent("touchstart", moved, moved));
+    board.dispatch("touchmove", createTouchEvent("touchmove", pair, pair));
+    browser.flushAsync();
+    assert.equal(viewport.getScale(), 0.25);
   } finally {
     env.restore();
   }

@@ -248,3 +248,105 @@ test("native touch events pan with one finger and zoom around the same point", a
   ).toEqual(before);
   await session.detach();
 });
+
+test("phone pinch batches rapid input without oscillating around its anchor", async ({
+  boardPage,
+  page,
+}) => {
+  await boardPage.gotoBoard("phone-pinch-frames");
+  await boardPage.selectTool("pencil");
+  await boardPage.selectTool("hand");
+  for (const size of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+    { width: 1024, height: 768 },
+  ]) {
+    await page.setViewportSize(size);
+    const result = await page.evaluate(async () => {
+      const viewport = window.WBOApp.viewportState.controller;
+      const board = document.getElementById("board");
+      if (!board) throw new Error("Missing board");
+      const frame = () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      viewport.ensureBoardExtentForPoint(100000, 100000);
+      viewport.setScale(0.2);
+      viewport.panTo(1600, 1600);
+      await frame();
+      const center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      const anchor = viewport.clientRectToBoardRect({
+        left: center.x,
+        top: center.y,
+      });
+      const dispatch = (type: string, distance: number) => {
+        const touches = [
+          {
+            identifier: 1,
+            clientX: center.x - distance / 2,
+            clientY: center.y,
+          },
+          {
+            identifier: 2,
+            clientX: center.x + distance / 2,
+            clientY: center.y,
+          },
+        ];
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          touches: { value: touches },
+          targetTouches: { value: touches },
+          changedTouches: { value: touches },
+        });
+        board.dispatchEvent(event);
+      };
+      dispatch("touchstart", 64);
+      let paints = 0;
+      const countPaint = () => paints++;
+      board.addEventListener("wbo:viewport-layout", countPaint);
+      const errors: number[] = [];
+      const scales: number[] = [];
+      const frames = [80, 112, 160, 240, 160, 112, 64, 40, 24, 40, 64];
+      for (const distance of frames) {
+        for (const sample of [distance - 2, distance - 1, distance]) {
+          dispatch("touchmove", sample);
+        }
+        await frame();
+        const rect = viewport.boardRectToViewportRect({
+          ...anchor,
+          width: 0,
+          height: 0,
+        });
+        errors.push(Math.hypot(rect.left - center.x, rect.top - center.y));
+        scales.push(viewport.getScale());
+      }
+      // A release before the next frame must preserve the final valid sample.
+      dispatch("touchmove", 96);
+      const release = new Event("touchend", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperties(release, {
+        touches: { value: [] },
+        changedTouches: { value: [] },
+      });
+      board.dispatchEvent(release);
+      const finalScale = viewport.getScale();
+      await frame();
+      board.removeEventListener("wbo:viewport-layout", countPaint);
+      return {
+        errors,
+        scales,
+        frames,
+        paints,
+        finalScale,
+        afterRelease: viewport.getScale(),
+      };
+    });
+    expect(Math.max(...result.errors)).toBeLessThanOrEqual(2);
+    expect(result.scales).toEqual(
+      result.frames.map((distance) => (0.2 * distance) / 64),
+    );
+    expect(result.paints).toBe(result.frames.length + 1);
+    expect(result.finalScale).toBeCloseTo(0.3, 8);
+    expect(result.afterRelease).toBe(result.finalScale);
+  }
+});
