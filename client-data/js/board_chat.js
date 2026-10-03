@@ -216,9 +216,11 @@ export class BoardChat {
     this.isOpen = true;
     this.panel.hidden = false;
     this.toggle.setAttribute("aria-expanded", "true");
+    this.getTools().presence.markChatRead();
     this.position();
     this.syncConnection();
     if (!this.loaded) void this.loadHistory();
+    this.list.scrollTop = this.list.scrollHeight;
   }
 
   close() {

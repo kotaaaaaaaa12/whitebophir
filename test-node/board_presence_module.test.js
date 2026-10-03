@@ -426,3 +426,43 @@ test("presence activity row rendering is coalesced while the panel is open", asy
     env.restore();
   }
 });
+
+test("chat unread tracks unique live peer messages before opening and removes deleted messages", async () => {
+  const { PresenceModule } = await import(
+    "../client-data/js/board_presence_module.js"
+  );
+  const environment = createPresenceEnvironment();
+  try {
+    const tools = createPresenceTools(environment.svg, environment.drawingArea);
+    const presence = new PresenceModule(() => tools);
+    /** @type {Map<string, (message: any) => void>} */
+    const handlers = new Map();
+    const socket = {
+      on: (
+        /** @type {string} */ event,
+        /** @type {(message: any) => void} */ handler,
+      ) => handlers.set(event, handler),
+    };
+    tools.connection.socket = socket;
+    presence.attachChatNotifications(/** @type {any} */ (socket));
+    const message = { id: 1, name: "Peer", text: "Hello", sentAt: Date.now() };
+    handlers.get("chat_message")?.(message);
+    handlers.get("chat_message")?.(message);
+    assert.equal(presence.chatUnread.size, 1);
+    handlers.get("chat_message")?.({ ...message, id: 2, own: true });
+    assert.equal(presence.chatUnread.size, 1);
+    handlers.get("chat_message")?.({ ...message, id: 3 });
+    handlers.get("chat_deleted")?.({ id: 1 });
+    handlers.get("chat_message")?.(message);
+    assert.deepEqual([...presence.chatUnread], [3]);
+    presence.markChatRead();
+    tools.chat = { isOpen: true };
+    handlers.get("chat_message")?.({ ...message, id: 4 });
+    assert.equal(presence.chatUnread.size, 0);
+    tools.connection.socket = {};
+    handlers.get("chat_message")?.({ ...message, id: 5 });
+    assert.equal(presence.chatUnread.size, 0);
+  } finally {
+    environment.restore();
+  }
+});

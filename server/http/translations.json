@@ -154,7 +154,8 @@
     "chat_delete": "حذف الرسالة",
     "chat_delete_confirm": "هل تريد حذف هذه الرسالة للجميع؟ لا يمكن التراجع عن ذلك.",
     "chat_delete_failed": "تعذّر حذف الرسالة. حاول مرة أخرى.",
-    "chat_delete_forbidden": "يجب تسجيل الدخول كمسؤول لحذف رسائل الدردشة."
+    "chat_delete_forbidden": "يجب تسجيل الدخول كمسؤول لحذف رسائل الدردشة.",
+    "chat_unread": "الدردشة: {count} رسالة غير مقروءة"
   },
   "be": {
     "white-out": "Замазка",
@@ -311,7 +312,8 @@
     "chat_delete": "Выдаліць паведамленне",
     "chat_delete_confirm": "Выдаліць гэта паведамленне для ўсіх? Гэта нельга адмяніць.",
     "chat_delete_failed": "Не ўдалося выдаліць паведамленне. Паспрабуйце яшчэ раз.",
-    "chat_delete_forbidden": "Для выдалення паведамленняў чата неабходна ўвайсці як адміністратар."
+    "chat_delete_forbidden": "Для выдалення паведамленняў чата неабходна ўвайсці як адміністратар.",
+    "chat_unread": "Чат: непрачытаных паведамленняў — {count}"
   },
   "ca": {
     "white-out": "Corrector blanc",
@@ -468,7 +470,8 @@
     "chat_delete": "Suprimeix el missatge",
     "chat_delete_confirm": "Vols suprimir aquest missatge per a tothom? No es pot desfer.",
     "chat_delete_failed": "No s’ha pogut suprimir el missatge. Torna-ho a provar.",
-    "chat_delete_forbidden": "Cal iniciar sessió com a administrador per suprimir missatges del xat."
+    "chat_delete_forbidden": "Cal iniciar sessió com a administrador per suprimir missatges del xat.",
+    "chat_unread": "Xat: {count} missatges sense llegir"
   },
   "de": {
     "board_name_placeholder": "Name des Whiteboards…",
@@ -625,7 +628,8 @@
     "chat_delete": "Nachricht löschen",
     "chat_delete_confirm": "Diese Nachricht für alle löschen? Dies kann nicht rückgängig gemacht werden.",
     "chat_delete_failed": "Die Nachricht konnte nicht gelöscht werden. Versuche es erneut.",
-    "chat_delete_forbidden": "Zum Löschen von Chatnachrichten ist eine Administratoranmeldung erforderlich."
+    "chat_delete_forbidden": "Zum Löschen von Chatnachrichten ist eine Administratoranmeldung erforderlich.",
+    "chat_unread": "Chat: {count} ungelesene Nachrichten"
   },
   "en": {
     "white-out": "White-out",
@@ -782,7 +786,8 @@
     "chat_delete": "Delete message",
     "chat_delete_confirm": "Delete this message for everyone? This cannot be undone.",
     "chat_delete_failed": "The message could not be deleted. Try again.",
-    "chat_delete_forbidden": "Administrator sign-in is required to delete chat messages."
+    "chat_delete_forbidden": "Administrator sign-in is required to delete chat messages.",
+    "chat_unread": "Chat: {count} unread messages"
   },
   "es": {
     "board_name_placeholder": "Nombre de la pizarra …",
@@ -939,7 +944,8 @@
     "chat_delete": "Eliminar mensaje",
     "chat_delete_confirm": "¿Eliminar este mensaje para todos? No se puede deshacer.",
     "chat_delete_failed": "No se pudo eliminar el mensaje. Inténtalo de nuevo.",
-    "chat_delete_forbidden": "Debes iniciar sesión como administrador para eliminar mensajes del chat."
+    "chat_delete_forbidden": "Debes iniciar sesión como administrador para eliminar mensajes del chat.",
+    "chat_unread": "Chat: {count} mensajes sin leer"
   },
   "fr": {
     "board_name_placeholder": "Nom du tableau…",
@@ -1095,7 +1101,8 @@
     "chat_delete": "Supprimer le message",
     "chat_delete_confirm": "Supprimer ce message pour tout le monde ? Cette action est irréversible.",
     "chat_delete_failed": "Le message n’a pas pu être supprimé. Réessayez.",
-    "chat_delete_forbidden": "Une connexion administrateur est requise pour supprimer des messages du chat."
+    "chat_delete_forbidden": "Une connexion administrateur est requise pour supprimer des messages du chat.",
+    "chat_unread": "Discussion : {count} messages non lus"
   },
   "hu": {
     "white-out": "Lefedő",
@@ -1252,7 +1259,8 @@
     "chat_delete": "Üzenet törlése",
     "chat_delete_confirm": "Törlöd ezt az üzenetet mindenki számára? Ez nem vonható vissza.",
     "chat_delete_failed": "Az üzenetet nem sikerült törölni. Próbáld újra.",
-    "chat_delete_forbidden": "A csevegés üzeneteinek törléséhez rendszergazdaként kell bejelentkezni."
+    "chat_delete_forbidden": "A csevegés üzeneteinek törléséhez rendszergazdaként kell bejelentkezni.",
+    "chat_unread": "Csevegés: {count} olvasatlan üzenet"
   },
   "id": {
     "white-out": "Cairan koreksi",
@@ -1409,7 +1417,8 @@
     "chat_delete": "Hapus pesan",
     "chat_delete_confirm": "Hapus pesan ini untuk semua orang? Tindakan ini tidak dapat dibatalkan.",
     "chat_delete_failed": "Pesan tidak dapat dihapus. Coba lagi.",
-    "chat_delete_forbidden": "Masuk sebagai administrator untuk menghapus pesan obrolan."
+    "chat_delete_forbidden": "Masuk sebagai administrator untuk menghapus pesan obrolan.",
+    "chat_unread": "Obrolan: {count} pesan belum dibaca"
   },
   "it": {
     "board_name_placeholder": "Nome della lavagna…",
@@ -1566,7 +1575,8 @@
     "chat_delete": "Elimina messaggio",
     "chat_delete_confirm": "Eliminare questo messaggio per tutti? L’operazione non può essere annullata.",
     "chat_delete_failed": "Impossibile eliminare il messaggio. Riprova.",
-    "chat_delete_forbidden": "Per eliminare i messaggi della chat devi accedere come amministratore."
+    "chat_delete_forbidden": "Per eliminare i messaggi della chat devi accedere come amministratore.",
+    "chat_unread": "Chat: {count} messaggi non letti"
   },
   "ja": {
     "board_name_placeholder": "ボードの名前",
@@ -1723,7 +1733,8 @@
     "chat_delete": "メッセージを削除",
     "chat_delete_confirm": "このメッセージを全員の履歴から削除しますか？元に戻せません。",
     "chat_delete_failed": "メッセージを削除できませんでした。もう一度お試しください。",
-    "chat_delete_forbidden": "チャットの削除には管理者ログインが必要です。"
+    "chat_delete_forbidden": "チャットの削除には管理者ログインが必要です。",
+    "chat_unread": "チャット：未読メッセージ {count} 件"
   },
   "my": {
     "board_name_placeholder": "ဝှိုက်ဘုတ်အမည် ... ",
@@ -1880,7 +1891,8 @@
     "chat_delete": "စာတိုကို ဖျက်မည်",
     "chat_delete_confirm": "ဤစာတိုကို လူတိုင်းအတွက် ဖျက်မလား။ ပြန်ယူ၍ မရပါ။",
     "chat_delete_failed": "စာတိုကို မဖျက်နိုင်ပါ။ ထပ်စမ်းကြည့်ပါ။",
-    "chat_delete_forbidden": "စကားပြောစာတိုများကို ဖျက်ရန် စီမံခန့်ခွဲသူအဖြစ် ဝင်ရောက်ရန် လိုအပ်သည်။"
+    "chat_delete_forbidden": "စကားပြောစာတိုများကို ဖျက်ရန် စီမံခန့်ခွဲသူအဖြစ် ဝင်ရောက်ရန် လိုအပ်သည်။",
+    "chat_unread": "စကားပြောခန်း: မဖတ်ရသေးသော စာ {count} စောင်"
   },
   "pt": {
     "white-out": "Branquejar",
@@ -2037,7 +2049,8 @@
     "chat_delete": "Excluir mensagem",
     "chat_delete_confirm": "Excluir esta mensagem para todos? Isso não pode ser desfeito.",
     "chat_delete_failed": "Não foi possível excluir a mensagem. Tente novamente.",
-    "chat_delete_forbidden": "É necessário entrar como administrador para excluir mensagens do bate-papo."
+    "chat_delete_forbidden": "É necessário entrar como administrador para excluir mensagens do bate-papo.",
+    "chat_unread": "Chat: {count} mensagens não lidas"
   },
   "ru": {
     "board_name_placeholder": "Название доски",
@@ -2194,7 +2207,8 @@
     "chat_delete": "Удалить сообщение",
     "chat_delete_confirm": "Удалить это сообщение для всех? Это действие нельзя отменить.",
     "chat_delete_failed": "Не удалось удалить сообщение. Попробуйте ещё раз.",
-    "chat_delete_forbidden": "Для удаления сообщений чата необходимо войти как администратор."
+    "chat_delete_forbidden": "Для удаления сообщений чата необходимо войти как администратор.",
+    "chat_unread": "Чат: непрочитанных сообщений — {count}"
   },
   "sw": {
     "board_name_placeholder": "Jina la ubao mweupe ...",
@@ -2351,7 +2365,8 @@
     "chat_delete": "Futa ujumbe",
     "chat_delete_confirm": "Ungependa kufuta ujumbe huu kwa kila mtu? Hili haliwezi kutenduliwa.",
     "chat_delete_failed": "Ujumbe haukuweza kufutwa. Jaribu tena.",
-    "chat_delete_forbidden": "Ingia kama msimamizi ili kufuta ujumbe wa mazungumzo."
+    "chat_delete_forbidden": "Ingia kama msimamizi ili kufuta ujumbe wa mazungumzo.",
+    "chat_unread": "Gumzo: ujumbe {count} ambao haujasomwa"
   },
   "th": {
     "board_name_placeholder": "ชื่อไวท์บอร์ด ...",
@@ -2508,7 +2523,8 @@
     "chat_delete": "ลบข้อความ",
     "chat_delete_confirm": "ลบข้อความนี้สำหรับทุกคนหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
     "chat_delete_failed": "ไม่สามารถลบข้อความได้ โปรดลองอีกครั้ง",
-    "chat_delete_forbidden": "ต้องเข้าสู่ระบบในฐานะผู้ดูแลเพื่อ ลบข้อความแชต"
+    "chat_delete_forbidden": "ต้องเข้าสู่ระบบในฐานะผู้ดูแลเพื่อ ลบข้อความแชต",
+    "chat_unread": "แชต: ข้อความที่ยังไม่ได้อ่าน {count} ข้อความ"
   },
   "uk": {
     "white-out": "Коректор",
@@ -2665,7 +2681,8 @@
     "chat_delete": "Видалити повідомлення",
     "chat_delete_confirm": "Видалити це повідомлення для всіх? Цю дію не можна скасувати.",
     "chat_delete_failed": "Не вдалося видалити повідомлення. Спробуйте ще раз.",
-    "chat_delete_forbidden": "Для видалення повідомлень чату потрібно ввійти як адміністратор."
+    "chat_delete_forbidden": "Для видалення повідомлень чату потрібно ввійти як адміністратор.",
+    "chat_unread": "Чат: непрочитаних повідомлень — {count}"
   },
   "vi": {
     "white-out": "Bút xóa",
@@ -2822,7 +2839,8 @@
     "chat_delete": "Xóa tin nhắn",
     "chat_delete_confirm": "Xóa tin nhắn này cho tất cả mọi người? Không thể hoàn tác.",
     "chat_delete_failed": "Không thể xóa tin nhắn. Vui lòng thử lại.",
-    "chat_delete_forbidden": "Cần đăng nhập với quyền quản trị viên để xóa tin nhắn trò chuyện."
+    "chat_delete_forbidden": "Cần đăng nhập với quyền quản trị viên để xóa tin nhắn trò chuyện.",
+    "chat_unread": "Trò chuyện: {count} tin nhắn chưa đọc"
   },
   "zh-CN": {
     "board_name_placeholder": "白板名称",
@@ -2979,7 +2997,8 @@
     "chat_delete": "删除消息",
     "chat_delete_confirm": "为所有人删除此消息？此操作无法撤销。",
     "chat_delete_failed": "无法删除消息。请重试。",
-    "chat_delete_forbidden": "删除聊天消息需要管理员登录。"
+    "chat_delete_forbidden": "删除聊天消息需要管理员登录。",
+    "chat_unread": "聊天：{count} 条未读消息"
   },
   "zh-TW": {
     "board_name_placeholder": "白板名稱",
@@ -3136,7 +3155,8 @@
     "chat_delete": "刪除訊息",
     "chat_delete_confirm": "為所有人刪除此訊息？此操作無法復原。",
     "chat_delete_failed": "無法刪除訊息。請重試。",
-    "chat_delete_forbidden": "刪除聊天訊息需要管理員登入。"
+    "chat_delete_forbidden": "刪除聊天訊息需要管理員登入。",
+    "chat_unread": "聊天：{count} 則未讀訊息"
   },
   "pl": {
     "board_name_placeholder": "Nazwa tablicy",
@@ -3293,6 +3313,7 @@
     "chat_delete": "Usuń wiadomość",
     "chat_delete_confirm": "Usunąć tę wiadomość dla wszystkich? Tej operacji nie można cofnąć.",
     "chat_delete_failed": "Nie udało się usunąć wiadomości. Spróbuj ponownie.",
-    "chat_delete_forbidden": "Usuwanie wiadomości czatu wymaga zalogowania jako administrator."
+    "chat_delete_forbidden": "Usuwanie wiadomości czatu wymaga zalogowania jako administrator.",
+    "chat_unread": "Czat: nieprzeczytane wiadomości — {count}"
   }
 }

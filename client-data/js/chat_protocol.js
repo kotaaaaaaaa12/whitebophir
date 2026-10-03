@@ -3,6 +3,7 @@ export const CHAT_MAX_LENGTH = 1000;
 const FORBIDDEN_CHARACTERS = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 
 /** @typedef {{id: number, name: string, text: string, sentAt: number}} ChatMessage */
+/** @typedef {ChatMessage & {own?: boolean}} ChatLiveMessage */
 /** @typedef {{messages: ChatMessage[], nextBefore: number | null}} ChatPage */
 /** @typedef {{author: string, clientId: string, name: string, text: string, sentAt: number}} ChatInput */
 /** @typedef {{ok: true, message: ChatMessage} | {ok: false, error: string}} ChatSendResult */

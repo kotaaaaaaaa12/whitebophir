@@ -14,6 +14,7 @@ import { LIMITS } from "./message_limits.js";
 import { MutationType } from "./message_tool_metadata.js";
 import { MODERATION_RULES } from "./moderation_rules.js";
 import { SocketEvents } from "./socket_events.js";
+import { validChatMessage, validChatCursor } from "./chat_protocol.js";
 import { createToolIconBadge, updateToolIconBadge } from "./tool_icon_badge.js";
 
 /** @import { AppToolsState, AttachedBoardDomModule, BoardMessage, ConnectedUser, ConnectedUserMap, HandChildMessage } from "../../types/app-runtime" */
@@ -30,8 +31,64 @@ export class PresenceModule {
     this.friendStorageBound = false;
     this.panelOpen = false;
     this.renderScheduled = false;
+    this.chatUnread = /** @type {Set<number>} */ (new Set());
+    this.chatSeen = /** @type {Set<number>} */ (new Set());
+    this.chatSockets = new WeakSet();
+    this.chatVisibilityBound = false;
     /** @type {number | null} */
     this.staleTickId = null;
+  }
+
+  /** @param {import("../../types/app-runtime").AppSocket} socket */
+  attachChatNotifications(socket) {
+    if (this.chatSockets.has(socket)) return;
+    this.chatSockets.add(socket);
+    socket.on(SocketEvents.CHAT_MESSAGE, (message) => {
+      if (
+        socket !== this.getTools().connection.socket ||
+        !validChatMessage(message)
+      )
+        return;
+      if (this.chatSeen.has(message.id)) return;
+      this.chatSeen.add(message.id);
+      if (
+        message.own !== true &&
+        !(this.getTools().chat?.isOpen && document.visibilityState !== "hidden")
+      )
+        this.chatUnread.add(message.id);
+      this.syncChatUnread();
+    });
+    socket.on(SocketEvents.CHAT_DELETED, (message) => {
+      if (
+        socket !== this.getTools().connection.socket ||
+        !validChatCursor(message?.id)
+      )
+        return;
+      this.chatSeen.add(message.id);
+      this.chatUnread.delete(message.id);
+      this.syncChatUnread();
+    });
+  }
+
+  markChatRead() {
+    if (document.visibilityState === "hidden") return;
+    this.chatUnread.clear();
+    this.syncChatUnread();
+  }
+
+  syncChatUnread() {
+    const badge = document.getElementById("boardChatUnread");
+    const toggle = document.getElementById("boardChatToggle");
+    if (!badge || !toggle) return;
+    const count = this.chatUnread.size;
+    badge.hidden = count === 0;
+    badge.textContent = count > 99 ? "99+" : String(count);
+    const Tools = this.getTools();
+    const label = count
+      ? Tools.i18n.format("chat_unread", { count })
+      : Tools.i18n.t("chat_title");
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
   }
 
   clearConnectedUsers() {
@@ -239,6 +296,13 @@ export class PresenceModule {
     }
     this.panelOpen = toggle.getAttribute("aria-expanded") === "true";
     const chatToggle = document.getElementById("boardChatToggle");
+    this.syncChatUnread();
+    if (!this.chatVisibilityBound) {
+      this.chatVisibilityBound = true;
+      document.addEventListener("visibilitychange", () => {
+        if (this.getTools().chat?.isOpen) this.markChatRead();
+      });
+    }
     if (
       chatToggle instanceof HTMLButtonElement &&
       chatToggle.dataset.chatBound !== "true"
@@ -263,7 +327,7 @@ export class PresenceModule {
           const { BoardChat } = await import("./board_chat.js");
           Tools.chat ||= new BoardChat(this.getTools);
           Tools.chat.open();
-          chatToggle.title = Tools.i18n.t("chat_title");
+          this.syncChatUnread();
         } catch {
           chatToggle.title = Tools.i18n.t("chat_unavailable");
         } finally {

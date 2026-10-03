@@ -169,6 +169,31 @@ test("history paginates beyond 100 messages and stays inside short mobile and RT
   await expect(panel.locator("li")).toHaveCount(103);
   await expect(older).toBeHidden();
   await expect(panel.locator("li p").first()).toHaveText("saved 1");
+  const list = panel.locator(".board-chat-messages");
+  await list.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect
+    .poll(() => list.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  for (let opening = 0; opening < 2; opening++) {
+    await panel.locator("header button").tap();
+    await expect(panel).toBeHidden();
+    await page.locator("#boardChatToggle").tap();
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(() =>
+        list.evaluate(
+          (element) =>
+            element.scrollHeight - element.scrollTop - element.clientHeight,
+        ),
+      )
+      .toBeLessThanOrEqual(1);
+    await expect(panel.locator("li p").last()).toHaveText("saved 103");
+    await list.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+  }
   await expect(panel).toHaveAttribute("dir", "rtl");
   for (const viewport of [
     { width: 390, height: 844 },
@@ -462,3 +487,92 @@ adminChatTest(
     }
   },
 );
+
+test.describe("live unread badge", () => {
+  adminChatTest(
+    "badge receives before chat loads, excludes own/retried/history messages and removes deleted unread messages",
+    async ({ boardPage, page, browser, server }, testInfo) => {
+      await boardPage.gotoBoard("chat-unread");
+      await boardPage.waitForSocketConnected();
+      const badge = page.locator("#boardChatUnread");
+      const toggle = page.locator("#boardChatToggle");
+      await expect(badge).toBeHidden();
+      await expect(page.locator("#boardChatPanel")).toHaveCount(0);
+      const peerContext = await browser.newContext();
+      try {
+        const peerPage = await peerContext.newPage();
+        const peer = createBoardPage(peerPage, server);
+        await peer.gotoBoard("chat-unread");
+        await peer.waitForSocketConnected();
+        const nonce = randomUUID();
+        const send = (text: string, clientId = randomUUID()) =>
+          peerPage.evaluate(
+            async ({ text, clientId }) => {
+              const socket = window.WBOApp.connection.socket;
+              if (!socket) throw new Error("Missing socket");
+              return await new Promise<
+                import("../../client-data/js/chat_protocol.js").ChatSendResult
+              >((resolve) =>
+                socket.emit("chat_send", { text, clientId }, resolve),
+              );
+            },
+            { text, clientId },
+          );
+        expect((await send("First unread", nonce)).ok).toBe(true);
+        await expect(badge).toHaveText("1");
+        expect((await send("Retry", nonce)).ok).toBe(true);
+        await expect(badge).toHaveText("1");
+        expect((await send("Second unread")).ok).toBe(true);
+        await expect(badge).toHaveText("2");
+        await expect(toggle).toHaveAttribute(
+          "aria-label",
+          "Chat: 2 unread messages",
+        );
+        await expect(page.locator("#boardChatPanel")).toHaveCount(0);
+        const box = await toggle.boundingBox();
+        const bubble = await badge.boundingBox();
+        if (!box || !bubble) throw new Error("Missing badge geometry");
+        expect(bubble.x).toBeGreaterThan(box.x + box.width / 2);
+        expect(bubble.y).toBeLessThan(box.y + 5);
+        await page.screenshot({ path: testInfo.outputPath("chat-unread.png") });
+        await toggle.tap();
+        await expect(badge).toBeHidden();
+        await expect(page.locator("#boardChatPanel li")).toHaveCount(2);
+        await page.locator("#boardChatInput").fill("Own message");
+        await page.locator('.board-chat-form button[type="submit"]').tap();
+        await expect(page.locator("#boardChatPanel li")).toHaveCount(3);
+        await toggle.tap();
+        await expect(badge).toBeHidden();
+        const last = await send("Deleted unread");
+        if (!last.ok) throw new Error("Send failed");
+        await expect(badge).toHaveText("1");
+        const signIn = await peerPage.request.post(
+          `${server.serverUrl}/api/admin`,
+          {
+            headers: { "x-wbo-admin": "1" },
+            data: { password: "chat-browser-password" },
+          },
+        );
+        expect(signIn.ok()).toBe(true);
+        await peerPage.reload();
+        await peer.waitForSocketConnected();
+        await peerPage.evaluate(async (id) => {
+          const socket = window.WBOApp.connection.socket;
+          if (!socket) throw new Error("Missing socket");
+          await new Promise<void>((resolve, reject) =>
+            socket.emit("chat_delete", { id }, (result) =>
+              result.ok ? resolve() : reject(new Error(result.error)),
+            ),
+          );
+        }, last.message.id);
+        await expect(badge).toBeHidden();
+        await toggle.tap();
+        await expect(page.locator("#boardChatPanel li")).toHaveCount(3);
+        await toggle.tap();
+        await expect(badge).toBeHidden();
+      } finally {
+        await peerContext.close();
+      }
+    },
+  );
+});

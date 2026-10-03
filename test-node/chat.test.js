@@ -190,6 +190,15 @@ test("chat socket uses joined-board identity, persists before broadcasting, boun
             frame.event === "chat_message" && frame.room === "chat-socket",
         ),
       );
+      assert.deepEqual(
+        owner.emitted.find((frame) => frame.event === "chat_message")?.payload,
+        { ...result.message, own: true },
+      );
+      assert.deepEqual(
+        owner.broadcasted.find((frame) => frame.event === "chat_message")
+          ?.payload,
+        result.message,
+      );
       const history = await invoke("chat_history", { board: "other-private" });
       assert.equal(history.ok, true);
       if (history.ok && "messages" in history)
@@ -248,10 +257,15 @@ test("all 21 board languages include every chat label and error", async () => {
   const keys = Object.keys(translations.en || {}).filter((key) =>
     key.startsWith("chat_"),
   );
-  assert.equal(keys.length, 18);
+  assert.equal(keys.length, 19);
   for (const [language, dictionary] of Object.entries(translations))
     for (const key of keys) {
       assert.ok(dictionary[key]?.trim(), `${language}: ${key}`);
+      assert.deepEqual(
+        (dictionary[key] || "").match(/\{[a-z_]+\}/g) || [],
+        (translations.en?.[key] || "").match(/\{[a-z_]+\}/g) || [],
+        `${language}: ${key} placeholders`,
+      );
       if (language !== "en")
         assert.notEqual(dictionary[key], translations.en?.[key]);
     }

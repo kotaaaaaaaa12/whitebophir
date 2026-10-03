@@ -387,7 +387,7 @@ export type UserReportedPayload = {
 
 export type ClientSocketIncomingEventMap = {
   [SocketEvents.CHAT_DELETED]: { id: number };
-  [SocketEvents.CHAT_MESSAGE]: import("../client-data/js/chat_protocol.js").ChatMessage;
+  [SocketEvents.CHAT_MESSAGE]: import("../client-data/js/chat_protocol.js").ChatLiveMessage;
   [SocketEvents.BOARD_DELETED]: { boardName: string };
   [SocketEvents.BOARDSTATE]: AppBoardState;
   [SocketEvents.BROADCAST]: IncomingBroadcast;

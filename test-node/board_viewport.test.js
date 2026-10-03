@@ -119,7 +119,7 @@ function createBoardTouchTarget() {
   const listeners = new Map();
   const classNames = new Set();
   return {
-    style: {},
+    style: /** @type {Partial<CSSStyleDeclaration>} */ ({}),
     dataset: {},
     classList: {
       /** @param {string} name */
@@ -836,6 +836,14 @@ test("viewport two-finger gesture pans when midpoint moves", async () => {
     getBrowserHarness().flushAsync();
     assert.equal(move.defaultPrevented, true);
     assert.equal(viewport.getScale(), 0.5);
+    assert.equal(env.document.documentElement.scrollLeft, 100);
+    assert.equal(env.document.documentElement.scrollTop, 200);
+    assert.equal(board.style.transform, "translate(50px, 30px)");
+    board.dispatch(
+      "touchend",
+      createTouchEvent("touchend", [], [movedFirst, movedSecond]),
+    );
+    assert.equal(board.style.transform, "");
     assert.equal(env.document.documentElement.scrollLeft, 50);
     assert.equal(env.document.documentElement.scrollTop, 170);
   } finally {
@@ -872,6 +880,13 @@ test("viewport two-finger gesture pans and zooms together", async () => {
     getBrowserHarness().flushAsync();
     assert.equal(move.defaultPrevented, true);
     assert.equal(viewport.getScale(), 1);
+    assert.equal(env.document.documentElement.scrollLeft, 100);
+    assert.equal(env.document.documentElement.scrollTop, 200);
+    assert.equal(board.style.transform, "translate(-160px, -280px)");
+    board.dispatch(
+      "touchend",
+      createTouchEvent("touchend", [], [movedFirst, movedSecond]),
+    );
     assert.equal(env.document.documentElement.scrollLeft, 260);
     assert.equal(env.document.documentElement.scrollTop, 480);
   } finally {
@@ -1137,8 +1152,9 @@ test("pinch anchors to board geometry and restarts when a finger is replaced", a
     );
     getBrowserHarness().flushAsync();
     assert.equal(viewport.getScale(), 1);
-    assert.equal(env.document.documentElement.scrollLeft, 280);
-    assert.equal(env.document.documentElement.scrollTop, 470);
+    assert.equal(env.document.documentElement.scrollLeft, 100);
+    assert.equal(env.document.documentElement.scrollTop, 200);
+    assert.equal(board.style.transform, "translate(-180px, -270px)");
     board.dispatch(
       "touchend",
       createTouchEvent("touchend", [movedFirst], [movedSecond]),
@@ -1198,17 +1214,18 @@ test("pinch does not feed delayed scroll geometry back into its anchor", async (
       );
       browser.flushAsync();
       const scale = viewport.getScale();
+      assert.equal(env.document.documentElement.scrollLeft, 100);
+      assert.equal(env.document.documentElement.scrollTop, 200);
       assert.equal(
-        env.document.documentElement.scrollLeft,
-        40 + 360 * scale - 120,
-      );
-      assert.equal(
-        env.document.documentElement.scrollTop,
-        30 + 540 * scale - 100,
+        board.style.transform,
+        `translate(${100 - (40 + 360 * scale - 120)}px, ${200 - (30 + 540 * scale - 100)}px)`,
       );
       // Simulate geometry from an older compositor scroll position.
       reportedScroll = { left: 100, top: 200 };
     }
+    board.dispatch("touchend", createTouchEvent("touchend", [], fingers(80)));
+    assert.equal(env.document.documentElement.scrollLeft, 280);
+    assert.equal(env.document.documentElement.scrollTop, 470);
   } finally {
     env.restore();
   }
@@ -1253,9 +1270,9 @@ test("pinch coalesces touch bursts and commits the final move before finger rele
       createTouchEvent("touchend", [fingers(80)[0]], [fingers(80)[1]]),
     );
     assert.equal(viewport.getScale(), 1);
-    assert.equal(renders, 2);
+    assert.equal(renders, 3);
     browser.flushAsync();
-    assert.equal(renders, 2);
+    assert.equal(renders, 3);
     board.dispatch(
       "touchend",
       createTouchEvent("touchend", [], [fingers(80)[0]]),

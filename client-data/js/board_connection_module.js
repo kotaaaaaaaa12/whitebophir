@@ -304,6 +304,7 @@ export class ConnectionModule {
       const ioClient = await whenSocketIoReady();
       const socket = ioClient.connect("", socketParams);
       this.socket = socket;
+      Tools.presence.attachChatNotifications(socket);
       Tools.chat?.attachSocket(socket);
 
       // Receive draw instructions from the server.

@@ -277,6 +277,20 @@ test("phone pinch batches rapid input without oscillating around its anchor", as
         left: center.x,
         top: center.y,
       });
+      const marker = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
+      marker.setAttribute("cx", String(anchor.x));
+      marker.setAttribute("cy", String(anchor.y));
+      marker.setAttribute("r", "20");
+      document.getElementById("drawingArea")?.append(marker);
+      const originalBounds = {
+        width: board.style.width,
+        height: board.style.height,
+      };
+      const scrollPositions: { x: number; y: number }[] = [];
+      const layoutBounds: { width: string; height: string }[] = [];
       const dispatch = (type: string, distance: number) => {
         const touches = [
           {
@@ -310,12 +324,18 @@ test("phone pinch batches rapid input without oscillating around its anchor", as
           dispatch("touchmove", sample);
         }
         await frame();
-        const rect = viewport.boardRectToViewportRect({
-          ...anchor,
-          width: 0,
-          height: 0,
+        const rect = marker.getBoundingClientRect();
+        errors.push(
+          Math.hypot(
+            rect.left + rect.width / 2 - center.x,
+            rect.top + rect.height / 2 - center.y,
+          ),
+        );
+        scrollPositions.push({ x: window.scrollX, y: window.scrollY });
+        layoutBounds.push({
+          width: board.style.width,
+          height: board.style.height,
         });
-        errors.push(Math.hypot(rect.left - center.x, rect.top - center.y));
         scales.push(viewport.getScale());
       }
       // A release before the next frame must preserve the final valid sample.
@@ -332,7 +352,18 @@ test("phone pinch batches rapid input without oscillating around its anchor", as
       const finalScale = viewport.getScale();
       await frame();
       board.removeEventListener("wbo:viewport-layout", countPaint);
+      const finalRect = marker.getBoundingClientRect();
+      const finalError = Math.hypot(
+        finalRect.left + finalRect.width / 2 - center.x,
+        finalRect.top + finalRect.height / 2 - center.y,
+      );
+      marker.remove();
       return {
+        scrollPositions,
+        layoutBounds,
+        originalBounds,
+        finalError,
+        previewCleared: board.style.transform === "",
         errors,
         scales,
         frames,
@@ -342,10 +373,22 @@ test("phone pinch batches rapid input without oscillating around its anchor", as
       };
     });
     expect(Math.max(...result.errors)).toBeLessThanOrEqual(2);
+    expect(
+      result.scrollPositions.every(({ x, y }) => x === 1600 && y === 1600),
+    ).toBe(true);
+    expect(
+      result.layoutBounds.every(
+        ({ width, height }) =>
+          width === result.originalBounds.width &&
+          height === result.originalBounds.height,
+      ),
+    ).toBe(true);
+    expect(result.finalError).toBeLessThanOrEqual(2);
+    expect(result.previewCleared).toBe(true);
     expect(result.scales).toEqual(
       result.frames.map((distance) => (0.2 * distance) / 64),
     );
-    expect(result.paints).toBe(result.frames.length + 1);
+    expect(result.paints).toBe(result.frames.length + 2);
     expect(result.finalScale).toBeCloseTo(0.3, 8);
     expect(result.afterRelease).toBe(result.finalScale);
   }

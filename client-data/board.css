@@ -1631,6 +1631,27 @@ text {
 }
 
 /* The chat panel is mounted under body, outside the scrolling tool rail. */
+.board-chat-unread {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  background: #c23b22;
+  color: #ffffff;
+  font:
+    600 10px / 14px system-ui,
+    sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+.board-chat-unread[hidden] {
+  display: none;
+}
 .board-chat-panel {
   position: fixed;
   z-index: 48;

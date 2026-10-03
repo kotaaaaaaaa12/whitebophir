@@ -174,7 +174,8 @@ export async function handleChatSend(socket, board, config, payload, ack) {
         return ack({ ok: false, error: "chat_unavailable" });
       // Broadcast only after durable storage acknowledges the message. A retry of
       // the same nonce returns the same ID; receivers deduplicate it by that ID.
-      socket.emit(SocketEvents.CHAT_MESSAGE, message);
+      // The live sender marker never enters stored history or another viewer's event.
+      socket.emit(SocketEvents.CHAT_MESSAGE, { ...message, own: true });
       socket.broadcast.to(board).emit(SocketEvents.CHAT_MESSAGE, message);
       ack({ ok: true, message });
     });

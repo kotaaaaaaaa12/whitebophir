@@ -371,8 +371,8 @@ class GestureCoordinator {
         if (this.owner === "viewport-gesture") {
           safePreventDefault(event);
           if (event.touches.length === 0) {
-            this.handlers.endPinchPan();
             this.reset();
+            this.handlers.endPinchPan();
           } else if (event.touches.length === 1) {
             this.handlers.pausePinchPan();
           }
@@ -436,7 +436,7 @@ export function createViewportController(Tools) {
   let touchPolicy = "app-gesture";
   /** @type {{x: number, y: number, scrollLeft: number, scrollTop: number} | null} */
   let activePan = null;
-  /** @type {{distance: number, scale: number, boardX: number, boardY: number, pageLeft: number, pageTop: number, firstId: number, secondId: number} | null} */
+  /** @type {{distance: number, scale: number, boardX: number, boardY: number, pageLeft: number, pageTop: number, scrollLeft: number, scrollTop: number, left: number, top: number, previewed: boolean, firstId: number, secondId: number} | null} */
   let activePinchPan = null;
   /** @type {{scale: number, clientX: number, clientY: number} | null} */
   let pendingPinchPan = null;
@@ -656,6 +656,8 @@ export function createViewportController(Tools) {
    * @returns {void}
    */
   function syncLayoutSize() {
+    // Keep native scroll bounds stable while a pinch is previewed with transforms.
+    if (activePinchPan) return;
     const dom = getAttachedDom();
     if (!dom) return;
     const size = getScaledBoardLayoutSize(
@@ -740,9 +742,10 @@ export function createViewportController(Tools) {
     dom.svg.style.transform = `scale(${appliedScale})`;
     Tools.viewportState.scale = appliedScale;
     const resized =
+      !activePinchPan &&
       appliedScale <= scaleLimits.minScale &&
       ensureBoardExtentAtLeast(currentMaxBoardSize(), currentMaxBoardSize());
-    if (!resized) syncLayoutSize();
+    if (!resized && !activePinchPan) syncLayoutSize();
     if (scaleTimeout !== null) clearTimeout(scaleTimeout);
     scaleTimeout = window.setTimeout(() => {
       const timeoutDom = getAttachedDom();
@@ -927,6 +930,11 @@ export function createViewportController(Tools) {
       boardY: screenToBoard(center.clientY - origin.top, scale),
       pageLeft: origin.left + scroll.left,
       pageTop: origin.top + scroll.top,
+      scrollLeft: scroll.left,
+      scrollTop: scroll.top,
+      left: scroll.left,
+      top: scroll.top,
+      previewed: false,
       firstId: touches[0].identifier,
       secondId: touches[1].identifier,
     };
@@ -966,18 +974,56 @@ export function createViewportController(Tools) {
     pendingPinchPan = null;
     if (!activePinchPan || !pending) return;
     const scale = setScale(pending.scale);
-    // Derive an absolute scroll target from the original page origin. Reading
-    // scroll and client geometry again after a layout write can mix positions
-    // from different frames and feed that error into the next touch update.
-    panTo(
-      activePinchPan.pageLeft + activePinchPan.boardX * scale - pending.clientX,
-      activePinchPan.pageTop + activePinchPan.boardY * scale - pending.clientY,
+    const dom = getAttachedDom();
+    if (!dom) return;
+    // Minimum zoom expands the canonical extent when the preview is committed.
+    // Clamp against that future extent so releasing cannot change the target.
+    const minimumExtent =
+      scale <= getScaleLimits(currentScaleLimits()).minScale
+        ? currentMaxBoardSize()
+        : 0;
+    const size = getScaledBoardLayoutSize(
+      Math.max(dom.svg.width.baseVal.value, minimumExtent),
+      Math.max(dom.svg.height.baseVal.value, minimumExtent),
+      scale,
+      window.innerWidth,
+      window.innerHeight,
     );
+    activePinchPan.left = clampPan(
+      activePinchPan.pageLeft + activePinchPan.boardX * scale - pending.clientX,
+      activePinchPan.pageLeft + size.width - window.innerWidth,
+    );
+    activePinchPan.top = clampPan(
+      activePinchPan.pageTop + activePinchPan.boardY * scale - pending.clientY,
+      activePinchPan.pageTop + size.height - window.innerHeight,
+    );
+    // Scale and translation now live in the same rendered frame. Do not send
+    // concurrent native scroll requests to a separate mobile scrolling process.
+    dom.board.style.transform = `translate(${activePinchPan.scrollLeft - activePinchPan.left}px, ${activePinchPan.scrollTop - activePinchPan.top}px)`;
+    activePinchPan.previewed = true;
+    dispatchViewportLayoutEvent(dom);
+  }
+
+  /** @param {number} value @param {number} max */
+  function clampPan(value, max) {
+    return Math.max(0, Math.min(Math.max(0, max), value));
+  }
+
+  function commitPinchPan() {
+    const pinch = activePinchPan;
+    activePinchPan = null;
+    if (!pinch) return;
+    const dom = getAttachedDom();
+    if (dom) dom.board.style.transform = "";
+    if (pinch.previewed) {
+      setScale(getScale());
+      panTo(pinch.left, pinch.top);
+    } else syncLayoutSize();
   }
 
   function pausePinchPan() {
     flushPinchPan();
-    activePinchPan = null;
+    commitPinchPan();
   }
 
   function endPinchPan() {
@@ -991,7 +1037,7 @@ export function createViewportController(Tools) {
       pinchAnimationFrame = null;
     }
     pendingPinchPan = null;
-    activePinchPan = null;
+    commitPinchPan();
   }
 
   const gestureCoordinator = new GestureCoordinator({
@@ -1036,7 +1082,13 @@ export function createViewportController(Tools) {
   }
 
   function scheduleViewportHashSync() {
-    if (!hashObserversInstalled || activePan || activePinchPan) return;
+    if (
+      !hashObserversInstalled ||
+      activePan ||
+      activePinchPan ||
+      gestureCoordinator.owner === "viewport-gesture"
+    )
+      return;
     clearViewportHashSync();
     viewportHashScrollTimeout = window.setTimeout(
       updateViewportHistory,
@@ -1125,6 +1177,12 @@ export function createViewportController(Tools) {
           gestureCoordinator.eventHandlers[name],
           TOUCH_EVENT_LISTENER_OPTIONS,
         );
+      }
+      for (const name of ["gesturestart", "gesturechange", "gestureend"]) {
+        dom.board.addEventListener(name, safePreventDefault, {
+          passive: false,
+          capture: true,
+        });
       }
     },
     installTemporaryPan() {
