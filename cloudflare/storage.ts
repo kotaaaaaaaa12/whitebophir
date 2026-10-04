@@ -77,6 +77,14 @@ export class WhiteboardStorage extends DurableObject<Env> {
     ); CREATE TABLE IF NOT EXISTS chat_deleted (
       board TEXT NOT NULL, id INTEGER NOT NULL, author TEXT NOT NULL, client_id TEXT NOT NULL,
       PRIMARY KEY(board, id), UNIQUE(board, author, client_id)
+    ); CREATE TABLE IF NOT EXISTS recovery_archives (
+      board TEXT NOT NULL, checkpoint INTEGER NOT NULL, through_seq INTEGER NOT NULL,
+      skipped TEXT NOT NULL, archived_at INTEGER NOT NULL,
+      PRIMARY KEY(board, checkpoint, through_seq)
+    ); CREATE TABLE IF NOT EXISTS recovery_mutations (
+      board TEXT NOT NULL, checkpoint INTEGER NOT NULL, through_seq INTEGER NOT NULL,
+      seq INTEGER NOT NULL, entry TEXT NOT NULL,
+      PRIMARY KEY(board, checkpoint, through_seq, seq)
     );`);
   }
 
@@ -123,9 +131,10 @@ export class WhiteboardStorage extends DurableObject<Env> {
         .toArray();
       return Response.json(rows.map((row) => row.name));
     }
-    const match = /^\/(snapshot|restore|journal|lifecycle|chat)\/([^/]+)$/.exec(
-      url.pathname,
-    );
+    const match =
+      /^\/(snapshot|restore|journal|lifecycle|chat|recovery)\/([^/]+)$/.exec(
+        url.pathname,
+      );
     const name = match ? decodeAndValidateBoardName(match[2]) : null;
     if (!match || !name)
       return new Response("Invalid storage path", { status: 400 });
@@ -181,6 +190,14 @@ export class WhiteboardStorage extends DurableObject<Env> {
             );
             this.ctx.storage.sql.exec(
               "DELETE FROM chat_deleted WHERE board = ?",
+              name,
+            );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM recovery_mutations WHERE board = ?",
+              name,
+            );
+            this.ctx.storage.sql.exec(
+              "DELETE FROM recovery_archives WHERE board = ?",
               name,
             );
           });
@@ -298,6 +315,90 @@ export class WhiteboardStorage extends DurableObject<Env> {
         return Response.json(removed);
       }
       return new Response("Method not allowed", { status: 405 });
+    }
+    if (match[1] === "recovery") {
+      if (request.method === "GET") {
+        if (!url.searchParams.has("checkpoint")) {
+          return Response.json(
+            this.ctx.storage.sql
+              .exec(
+                "SELECT checkpoint, through_seq, skipped, archived_at FROM recovery_archives WHERE board = ? ORDER BY archived_at",
+                name,
+              )
+              .toArray(),
+          );
+        }
+        const checkpoint = Number(url.searchParams.get("checkpoint"));
+        const through = Number(url.searchParams.get("through"));
+        const after = Number(url.searchParams.get("after") || 0);
+        if (
+          ![checkpoint, through, after].every(
+            (value) => Number.isSafeInteger(value) && value >= 0,
+          )
+        )
+          return new Response("Invalid recovery cursor", { status: 400 });
+        const rows = this.ctx.storage.sql
+          .exec<{ entry: string }>(
+            "SELECT entry FROM recovery_mutations WHERE board = ? AND checkpoint = ? AND through_seq = ? AND seq > ? ORDER BY seq LIMIT 8",
+            name,
+            checkpoint,
+            through,
+            after,
+          )
+          .toArray();
+        return new Response(`[${rows.map((row) => row.entry).join(",")}]`, {
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (request.method !== "POST")
+        return new Response("Method not allowed", { status: 405 });
+      let input: { checkpoint: number; through: number; skipped: number[] };
+      try {
+        input = (await boundedJson(request)) as typeof input;
+      } catch {
+        return new Response("Invalid recovery body", { status: 400 });
+      }
+      if (
+        !input ||
+        !Number.isSafeInteger(input.checkpoint) ||
+        input.checkpoint < 0 ||
+        !Number.isSafeInteger(input.through) ||
+        input.through <= input.checkpoint ||
+        !Array.isArray(input.skipped) ||
+        input.skipped.length === 0 ||
+        !input.skipped.every(
+          (seq) =>
+            Number.isSafeInteger(seq) &&
+            seq > input.checkpoint &&
+            seq <= input.through,
+        )
+      )
+        return new Response("Invalid recovery range", { status: 400 });
+      // No await between checking the durable cursor and copying the raw log.
+      if (this.lifecycle(name)?.deleted)
+        return new Response("Board deleted", { status: 410 });
+      const row = this.board(name);
+      if (row.checkpoint !== input.checkpoint || row.seq !== input.through)
+        return new Response("Recovery cursor changed", { status: 409 });
+      this.ctx.storage.transactionSync(() => {
+        this.ctx.storage.sql.exec(
+          "INSERT OR IGNORE INTO recovery_archives VALUES (?, ?, ?, ?, ?)",
+          name,
+          input.checkpoint,
+          input.through,
+          JSON.stringify(input.skipped),
+          Date.now(),
+        );
+        this.ctx.storage.sql.exec(
+          "INSERT OR IGNORE INTO recovery_mutations SELECT board, ?, ?, seq, entry FROM mutations WHERE board = ? AND seq > ? AND seq <= ?",
+          input.checkpoint,
+          input.through,
+          name,
+          input.checkpoint,
+          input.through,
+        );
+      });
+      return new Response(null, { status: 204 });
     }
     if (match[1] === "restore" && request.method === "GET") {
       const row = this.board(name);
@@ -431,7 +532,14 @@ export class WhiteboardStorage extends DurableObject<Env> {
         if (
           row.previous_checkpoint > 0 &&
           row.previous_checkpoint !== row.checkpoint &&
-          row.previous_checkpoint !== seq
+          row.previous_checkpoint !== seq &&
+          !this.ctx.storage.sql
+            .exec(
+              "SELECT checkpoint FROM recovery_archives WHERE board = ? AND checkpoint = ? LIMIT 1",
+              name,
+              row.previous_checkpoint,
+            )
+            .toArray().length
         ) {
           this.ctx.waitUntil(
             this.env.BOARDS.delete(

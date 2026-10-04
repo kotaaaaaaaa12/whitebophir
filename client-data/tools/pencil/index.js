@@ -37,7 +37,7 @@ import { wboPencilPoint } from "./wbo_pencil_point.js";
 /** @typedef {{type: number, id: string, color?: string, size?: number, opacity?: number}} PencilLineData */
 /** @typedef {import("../shape_contract.js").SvgTransform} StoredPencilTransform */
 /** @typedef {{id?: string, color?: string, size?: number, opacity?: number, transform?: StoredPencilTransform}} StoredPencilPathItem */
-/** @typedef {{escapeHtml: (value: string) => string, numberOrZero: (value: unknown) => number, renderTransformAttribute: (transform: StoredPencilTransform | undefined) => string}} StoredPencilPathSerializeHelpers */
+/** @typedef {{escapeHtml: (value: string) => string, numberOrZero: (value: unknown) => number, renderTransformAttribute: (transform: StoredPencilTransform | undefined) => string, preservePencilSeeds?: boolean}} StoredPencilPathSerializeHelpers */
 
 /**
  * @param {unknown} data
@@ -263,7 +263,8 @@ function renderPencilPath(points) {
  * @returns {string}
  */
 function serializeStoredPencilPath(item, pathData, helpers) {
-  if (!pathData) return "";
+  if (!pathData && !helpers.preservePencilSeeds) return "";
+  const seed = pathData ? "" : ' data-wbo-pencil-seed="true"';
   const transform = helpers.renderTransformAttribute(item.transform);
   const id = typeof item.id === "string" ? helpers.escapeHtml(item.id) : "";
   const color = helpers.escapeHtml(item.color || "#000000");
@@ -271,7 +272,7 @@ function serializeStoredPencilPath(item, pathData, helpers) {
   const opacity =
     typeof item.opacity === "number" ? ` opacity="${item.opacity}"` : "";
   return (
-    `<path id="${id}" d="${helpers.escapeHtml(pathData)}"` +
+    `<path id="${id}" d="${helpers.escapeHtml(pathData)}"${seed}` +
     ` stroke="${color}" stroke-width="${size}" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacity}${transform}></path>`
   );
 }
@@ -310,8 +311,12 @@ const contract = {
     const size = helpers.parseNumber(
       helpers.readStoredSvgAttribute(entry, "stroke-width"),
     );
-    const scanned = scanPathSummary(helpers.readStoredSvgAttribute(entry, "d"));
-    if (size === undefined || scanned.childCount === 0) return null;
+    const pathData = helpers.readStoredSvgAttribute(entry, "d");
+    const scanned = scanPathSummary(pathData);
+    const seed =
+      pathData === "" &&
+      helpers.readStoredSvgAttribute(entry, "data-wbo-pencil-seed") === "true";
+    if (size === undefined || (scanned.childCount === 0 && !seed)) return null;
     return {
       id: helpers.id,
       tool: contract.toolId,

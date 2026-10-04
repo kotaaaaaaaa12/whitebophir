@@ -8,6 +8,7 @@ import { isValidBoardName } from "../client-data/js/board_name.js";
 import { boardSvgPath } from "../server/persistence/svg_board_paths.mjs";
 import { storageRequest } from "../server/persistence/cloud_storage.mjs";
 import { createServerApp } from "../server/server.mjs";
+import { replayEntry } from "./recovery.mjs";
 
 // Recovery completes before the HTTP server or Socket.IO accepts any clients.
 await mkdir(config.HISTORY_DIR, { recursive: true });
@@ -38,35 +39,41 @@ do {
     if (board.getSeq() !== snapshotSeq)
       throw new Error(`Invalid snapshot for ${name}`);
     let afterSeq = board.getSeq();
+    const skipped = [];
     for (;;) {
       const log = await storageRequest(`/journal/${encoded}?after=${afterSeq}`);
       const entries = await log.json();
       if (!Array.isArray(entries)) throw new Error("Invalid mutation journal");
       if (entries.length === 0) break;
       for (const entry of entries) {
-        if (entry.seq !== board.getSeq() + 1)
-          throw new Error("Mutation sequence gap");
-        const prepared = await board.preparePersistentMutation(entry.mutation);
-        const mutation =
-          prepared.ok && prepared.mutation ? prepared.mutation : entry.mutation;
-        const result = board.processMessage(mutation);
-        // Overflow cleanup may already have applied a recorded delete effect.
-        const alreadyDeleted =
-          mutation.type === 3 &&
-          (!board.itemsById.has(mutation.id) ||
-            board.itemsById.get(mutation.id)?.deleted === true);
-        if (!result.ok && !alreadyDeleted)
-          throw new Error(
-            `Cannot recover mutation ${entry.seq}: ${result.reason}`,
-          );
-        board.consumePendingAcceptedMutationEffects();
-        board.consumePendingRejectedMutationEffects();
-        board.recordPersistentMutation(mutation, entry.acceptedAtMs);
-        board.clearSaveTimeout();
+        if (await replayEntry(board, entry)) skipped.push(entry.seq);
         afterSeq = entry.seq;
       }
     }
     if (board.getSeq() !== snapshotSeq) {
+      if (skipped.length) {
+        // Archive the original snapshot reference and the entire pending log
+        // before a successful save can compact any recovery input.
+        await storageRequest(`/recovery/${encoded}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            checkpoint: snapshotSeq,
+            through: afterSeq,
+            skipped,
+          }),
+        });
+        console.warn(
+          JSON.stringify({
+            event: "whiteboard.recovery.archived_orphan_points",
+            board: name,
+            checkpoint: snapshotSeq,
+            through: afterSeq,
+            count: skipped.length,
+            first: skipped[0],
+          }),
+        );
+      }
       const saved = await board.save();
       if (saved.status !== "saved")
         throw new Error(`Cannot save recovered board ${name}`);

@@ -156,6 +156,268 @@ function connectSocket(port, baselineSeq) {
   };
 }
 
+test("orphan recovery archives original input, survives empty-disk restarts and preserves empty pencil seeds", {
+  timeout: 60_000,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wbo-orphan-recovery-"));
+  let storage = await createStorage(dir);
+  let denyArchive = true;
+  const bridge = createServer(async (request, response) => {
+    try {
+      const parts = [];
+      for await (const part of request) parts.push(part);
+      if (denyArchive && request.url === "/recovery/anonymous") {
+        response.writeHead(503);
+        response.end("Archive temporarily unavailable");
+        return;
+      }
+      const result = await storage.dispatchFetch(
+        `http://wbo.storage${request.url}`,
+        {
+          method: request.method,
+          headers: request.headers,
+          ...(request.method !== "GET" ? { body: Buffer.concat(parts) } : {}),
+        },
+      );
+      response.writeHead(result.status, Object.fromEntries(result.headers));
+      response.end(Buffer.from(await result.arrayBuffer()));
+    } catch (error) {
+      response.writeHead(500);
+      response.end(String(error));
+    }
+  });
+  bridge.listen(0, "127.0.0.1");
+  await once(bridge, "listening");
+  const baseEnv = {
+    ...process.env,
+    WBO_SILENT: "true",
+    HOST: "127.0.0.1",
+    PORT: "0",
+    WBO_SAVE_INTERVAL: "1000000000",
+    WBO_MAX_SAVE_DELAY: "1000000000",
+    WBO_CLOUD_STORAGE_URL: `http://127.0.0.1:${bridge.address().port}`,
+  };
+  let child;
+  let writer;
+  try {
+    const original =
+      '<svg xmlns="http://www.w3.org/2000/svg" data-wbo-seq="1" width="2000" height="2000"><defs></defs><g id="drawingArea"><rect id="kept" x="1" y="2" width="10" height="20" stroke="#123456" stroke-width="3"></rect></g></svg>';
+    assert.equal(
+      (await snapshot(storage, "anonymous", 1, original)).status,
+      204,
+    );
+    const entries = [
+      {
+        seq: 2,
+        acceptedAtMs: 2,
+        mutation: { tool: 1, type: 4, parent: "missing", x: 15, y: 25 },
+      },
+      {
+        seq: 3,
+        acceptedAtMs: 3,
+        mutation: {
+          tool: "rectangle",
+          type: 1,
+          id: "later",
+          color: "#654321",
+          size: 3,
+          x: 20,
+          y: 30,
+          x2: 40,
+          y2: 50,
+        },
+      },
+    ];
+    assert.equal((await commit(storage, "anonymous", entries)).status, 204);
+    const script = `
+      import {mkdir} from 'node:fs/promises';
+      import { BoardData } from './server/board/data.mjs';
+      import { createBoardSession } from './server/board/session.mjs';
+      import * as config from './server/configuration.mjs';
+      await mkdir(config.HISTORY_DIR, {recursive: true});
+      const board = new BoardData('seed-test', config);
+      const session = createBoardSession(board);
+      const create = await session.acceptPersistentMutation({tool: 1, type: 1, id: 'seed', color: '#126abc', size: 7, opacity: 0.4});
+      if (!create.ok) throw new Error(create.reason);
+      const save = await board.save();
+      if (save.status !== 'saved') throw new Error('Seed save failed: ' + JSON.stringify(save));
+      const point = await session.acceptPersistentMutation({tool: 1, type: 4, parent: 'seed', x: 17, y: 29});
+      if (!point.ok) throw new Error(point.reason);
+      process.exit(0);
+    `;
+    writer = spawn(process.execPath, ["--input-type=module", "-e", script], {
+      cwd: root,
+      env: { ...baseEnv, WBO_HISTORY_DIR: path.join(dir, "writer") },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let writerErrors = "";
+    writer.stderr.on("data", (data) => {
+      writerErrors += data;
+    });
+    const [code] = await once(writer, "exit");
+    assert.equal(code, 0, writerErrors);
+    const seedSnapshot = await storage.dispatchFetch(
+      "http://wbo.storage/restore/seed-test",
+    );
+    assert.equal(seedSnapshot.headers.get("x-snapshot-seq"), "1");
+    assert.match(await seedSnapshot.text(), /d="" data-wbo-pencil-seed="true"/);
+    child = fork(path.join(root, "cloudflare/entrypoint.mjs"), [], {
+      cwd: root,
+      env: { ...baseEnv, WBO_HISTORY_DIR: path.join(dir, "archive-failure") },
+      silent: true,
+    });
+    let archiveErrors = "";
+    child.stderr.on("data", (data) => {
+      archiveErrors += data;
+    });
+    const [failedCode] = await once(child, "exit");
+    child = undefined;
+    assert.notEqual(failedCode, 0);
+    assert.match(archiveErrors, /Persistent storage returned HTTP 503/);
+    const unchanged = await storage.dispatchFetch(
+      "http://wbo.storage/restore/anonymous",
+    );
+    assert.equal(unchanged.headers.get("x-snapshot-seq"), "1");
+    assert.equal(await unchanged.text(), original);
+    assert.deepEqual(
+      await (
+        await storage.dispatchFetch("http://wbo.storage/journal/anonymous")
+      ).json(),
+      entries,
+    );
+    denyArchive = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const history = path.join(dir, `fresh-${attempt}`);
+      child = fork(path.join(root, "cloudflare/entrypoint.mjs"), [], {
+        cwd: root,
+        env: { ...baseEnv, WBO_HISTORY_DIR: history },
+        silent: true,
+      });
+      let errors = "";
+      child.stderr.on("data", (data) => {
+        errors += data;
+      });
+      const started = await Promise.race([
+        once(child, "message").then(([message]) => message),
+        once(child, "exit").then(([exitCode]) => {
+          throw new Error(`Recovery exited ${exitCode}: ${errors}`);
+        }),
+      ]);
+      assert.equal(started.type, "server-started");
+      const anonymous = await readFile(
+        path.join(history, "board-anonymous.svg"),
+        "utf8",
+      );
+      assert.match(anonymous, /id="kept"/);
+      assert.match(anonymous, /id="later"/);
+      assert.match(
+        anonymous,
+        attempt === 0 ? /data-wbo-seq="3"/ : /data-wbo-seq="4"/,
+      );
+      assert.doesNotMatch(anonymous, /id="missing"/);
+      const seed = await readFile(
+        path.join(history, "board-seed-test.svg"),
+        "utf8",
+      );
+      assert.match(seed, /d="M 17 29 l 0 0"/);
+      assert.match(seed, /stroke="#126abc" stroke-width="7"/);
+      assert.match(seed, /opacity="0.4"/);
+      assert.equal(
+        (await fetch(`http://127.0.0.1:${started.port}/boards/anonymous`))
+          .status,
+        200,
+      );
+      const archives = await (
+        await storage.dispatchFetch("http://wbo.storage/recovery/anonymous")
+      ).json();
+      assert.equal(archives.length, 1);
+      assert.deepEqual(JSON.parse(archives[0].skipped), [2]);
+      assert.deepEqual(
+        await (
+          await storage.dispatchFetch(
+            "http://wbo.storage/recovery/anonymous?checkpoint=1&through=3",
+          )
+        ).json(),
+        entries,
+      );
+      const bucket = await storage.getR2Bucket("BOARDS");
+      assert.equal(
+        await (await bucket.get("boards/anonymous/1.svg")).text(),
+        original,
+      );
+      child.kill("SIGKILL");
+      await once(child, "exit");
+      child = undefined;
+      if (attempt === 0) {
+        // A later checkpoint must not garbage-collect the archived snapshot.
+        assert.equal(
+          (
+            await commit(storage, "anonymous", [
+              {
+                seq: 4,
+                acceptedAtMs: 4,
+                mutation: { tool: "eraser", type: 3, id: "already-gone" },
+              },
+            ])
+          ).status,
+          204,
+        );
+        assert.equal(
+          (
+            await snapshot(
+              storage,
+              "anonymous",
+              4,
+              anonymous.replace('data-wbo-seq="3"', 'data-wbo-seq="4"'),
+            )
+          ).status,
+          204,
+        );
+        await storage.dispose();
+        storage = await createStorage(dir);
+      }
+    }
+    assert.equal(
+      (
+        await storage.dispatchFetch("http://wbo.storage/recovery/anonymous", {
+          method: "POST",
+          body: JSON.stringify({ checkpoint: 1, through: 4, skipped: [2] }),
+        })
+      ).status,
+      409,
+    );
+    assert.equal(
+      (
+        await storage.dispatchFetch("http://wbo.storage/lifecycle/anonymous", {
+          method: "DELETE",
+        })
+      ).status,
+      204,
+    );
+    assert.equal(
+      (await storage.dispatchFetch("http://wbo.storage/recovery/anonymous"))
+        .status,
+      410,
+    );
+    const bucket = await storage.getR2Bucket("BOARDS");
+    assert.equal(
+      (await bucket.list({ prefix: "boards/anonymous/" })).objects.length,
+      0,
+    );
+  } finally {
+    for (const process of [child, writer]) {
+      if (process && process.exitCode === null && process.signalCode === null) {
+        process.kill("SIGKILL");
+        await once(process, "exit");
+      }
+    }
+    bridge.closeAllConnections();
+    await new Promise((resolve) => bridge.close(resolve));
+    await storage.dispose();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("journal validation, snapshot compaction, and persistence across runtime restarts", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "wbo-storage-"));
   let storage = await createStorage(dir);

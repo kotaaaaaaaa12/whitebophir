@@ -103,6 +103,8 @@ const storedSvgSerializeHelpers = {
   escapeHtml,
   numberOrZero,
   renderTransformAttribute,
+  // Cloud checkpoints must include stroke metadata before the first point.
+  preservePencilSeeds: Boolean(process.env.WBO_CLOUD_STORAGE_URL),
 };
 
 /**
@@ -176,11 +178,7 @@ function serializeStoredSvgItem(item) {
   }
   const contract = TOOL_BY_ID[item.tool];
   if (contract && typeof contract.serializeStoredSvgItem === "function") {
-    return contract.serializeStoredSvgItem(item, {
-      escapeHtml,
-      numberOrZero,
-      renderTransformAttribute,
-    });
+    return contract.serializeStoredSvgItem(item, storedSvgSerializeHelpers);
   }
   return "";
 }

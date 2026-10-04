@@ -11,6 +11,7 @@ import {
 import {
   canonicalItemFromStoredSvgEntry,
   currentText,
+  effectiveChildCount,
   publicItemFromCanonicalItem,
 } from "../board/canonical_items.mjs";
 import {
@@ -690,14 +691,19 @@ function serializeCanonicalItemForStorage(item, options = {}) {
       item,
       options.isPersistedItem === true,
     );
-    const pathData = sourceRequired
-      ? appendPersistedPencilPath(
-          options.sourcePath,
-          storedItem.appendedChildren,
-        )
-      : renderPencilPath(storedItem._children || []);
-    if (!pathData) {
-      if (!sourceRequired) return "";
+    const emptySeed =
+      sourceRequired &&
+      options.sourcePath === "" &&
+      item.payload.persistedChildCount === 0;
+    const pathData = emptySeed
+      ? renderPencilPath(storedItem.appendedChildren || [])
+      : sourceRequired
+        ? appendPersistedPencilPath(
+            options.sourcePath,
+            storedItem.appendedChildren,
+          )
+        : renderPencilPath(storedItem._children || []);
+    if (!pathData && sourceRequired && effectiveChildCount(item) > 0) {
       throw new Error(
         `Missing persisted pencil path data for item "${item.id || "(unknown)"}"`,
       );
@@ -834,7 +840,11 @@ function readStoredEntryAttribute(entry, name) {
  */
 function readStoredPencilPath(entry) {
   const value = readStoredEntryAttribute(entry, "d");
-  return typeof value === "string" && value !== "" ? value : undefined;
+  if (typeof value !== "string") return undefined;
+  return value !== "" ||
+    readStoredEntryAttribute(entry, "data-wbo-pencil-seed") === "true"
+    ? value
+    : undefined;
 }
 
 /**

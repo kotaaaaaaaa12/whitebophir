@@ -5,7 +5,7 @@
  * @typedef {{id: string, tool: string, paintOrder?: number, data: object, localBounds: LocalBounds | null}} StoredShapeSummary
  * @typedef {{x: number, y: number}} StoredPoint
  * @typedef {{[key: string]: unknown, id?: string, tool?: string, color?: string, size?: number, opacity?: number, transform?: SvgTransform, x?: number, y?: number, x2?: number, y2?: number, txt?: string, _children?: StoredPoint[], deltax?: number, deltay?: number}} StoredShapeItem
- * @typedef {{escapeHtml: (value: string) => string, numberOrZero: (value: unknown) => number, renderTransformAttribute: (transform: SvgTransform | undefined) => string}} StoredShapeSerializeHelpers
+ * @typedef {{escapeHtml: (value: string) => string, numberOrZero: (value: unknown) => number, renderTransformAttribute: (transform: SvgTransform | undefined) => string, preservePencilSeeds?: boolean}} StoredShapeSerializeHelpers
  * @typedef {{id: string, opacity?: number, transform?: SvgTransform, decorateStoredItemData: (data: object, opacity: number | undefined, transform: SvgTransform | undefined) => object, decodedTextLength: (value: string) => number, parseNumber: (value: unknown) => number | undefined, readStoredSvgAttribute: (entry: StoredSvgEntry, name: string) => string | undefined}} StoredShapeSummaryHelpers
  * @typedef {{readStoredSvgAttribute: (entry: StoredSvgEntry, name: string) => string | undefined, unescapeHtml: (value: string) => string}} StoredShapeParseHelpers
  * @typedef {{htmlspecialchars: (value: string) => string, numberOrZero: (value: unknown) => number, renderPath: (item: StoredShapeItem, pathString: string) => string, renderTranslate: (item: StoredShapeItem) => string}} StoredShapeRenderHelpers

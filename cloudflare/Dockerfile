@@ -6,6 +6,7 @@ COPY --chown=node:node server ./server
 COPY --chown=node:node client-data ./client-data
 COPY --chown=node:node types ./types
 COPY --chown=node:node cloudflare/entrypoint.mjs ./cloudflare/entrypoint.mjs
+COPY --chown=node:node cloudflare/recovery.mjs ./cloudflare/recovery.mjs
 RUN mkdir -p server-data && chown node:node server-data
 USER node
 ENV NODE_ENV=production PORT=8080 HOST=0.0.0.0
