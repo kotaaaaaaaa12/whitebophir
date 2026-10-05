@@ -124,10 +124,140 @@ test("partial erasing uses SIZE, stays transparent, syncs and survives reload", 
     [255, 0, 0, 255],
   ]);
   await boardPage.selectTool("eraser");
+  // Native SVG hit testing still reports the original path inside the mask.
+  // Object erasing must leave both surviving halves intact at that location.
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+    await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  await boardPage.waitForBufferedWritesDrained();
+  await expect(path).toHaveCount(1);
+  await expect(peer.locator("#drawingArea #stroke")).toHaveCount(1);
   await page.mouse.click(point.x - 50, point.y);
   await expect(path).toHaveCount(0);
   await expect(peer.locator("#drawingArea #stroke")).toHaveCount(0);
   await peer.close();
+});
+
+test("object erasing looks through masked holes and respects moved copies", async ({
+  boardPage,
+  page,
+  server,
+}) => {
+  const name = "object-eraser-holes";
+  const stroke = (id: string, color: string) => ({
+    id,
+    tool: "pencil",
+    color,
+    size: 20,
+    _children: [
+      { x: 200, y: 200 },
+      { x: 700, y: 200 },
+    ],
+  });
+  await server.writeBoard(server.dataPath, name, {
+    underneath: stroke("underneath", "#0000ff"),
+    top: stroke("top", "#ff0000"),
+  });
+  await boardPage.gotoBoard(name);
+  await boardPage.selectTool("eraser");
+  await page.evaluate(() =>
+    window.WBOApp.writes.drawAndSend({
+      tool: 6,
+      type: 2,
+      id: "top",
+      erasure: {
+        key: "hole",
+        x: 3000,
+        y: 2000,
+        x2: 3000,
+        y2: 2000,
+        size: 160,
+        transform: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 },
+      },
+    }),
+  );
+  await boardPage.waitForBufferedWritesDrained();
+  async function click(x: number, y: number) {
+    const point = await page.evaluate(
+      ({ x, y }) => {
+        const svg = document.getElementById(
+          "canvas",
+        ) as unknown as SVGSVGElement;
+        const matrix = svg.getScreenCTM();
+        if (!matrix) throw new Error("Missing screen transform");
+        const point = new DOMPoint(x, y).matrixTransform(matrix);
+        return { x: point.x, y: point.y };
+      },
+      { x, y },
+    );
+    if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+      await page.touchscreen.tap(point.x, point.y);
+    else await page.mouse.click(point.x, point.y);
+    await boardPage.waitForBufferedWritesDrained();
+  }
+  // Only the blue line visible through the red line's hole should disappear.
+  await click(3000, 2000);
+  await expect(page.locator("#drawingArea #underneath")).toHaveCount(0);
+  await expect(page.locator("#drawingArea #top")).toHaveCount(1);
+  await click(3000, 2000);
+  await expect(page.locator("#drawingArea #top")).toHaveCount(1);
+  // A new stroke drawn over the hole is independent of the old mask.
+  await boardPage.selectTool("pencil");
+  await page.mouse.move(290, 200);
+  await page.mouse.down();
+  await page.mouse.move(310, 200);
+  await page.mouse.up();
+  await boardPage.waitForBufferedWritesDrained();
+  await expect(page.locator("#drawingArea path")).toHaveCount(2);
+  await boardPage.selectTool("eraser");
+  await click(3000, 2000);
+  await expect(page.locator("#drawingArea path")).toHaveCount(1);
+  await expect(page.locator("#drawingArea #top")).toHaveCount(1);
+  await boardPage.selectTool("hand");
+  await page.evaluate(() =>
+    window.WBOApp.writes.drawAndSend({
+      tool: 7,
+      _children: [
+        { type: 7, id: "top", newid: "copy" },
+        {
+          type: 2,
+          id: "copy",
+          transform: {
+            a: 1.2,
+            b: 0.3,
+            c: 0.1,
+            d: 0.8,
+            e: -900,
+            f: 500,
+          },
+        },
+      ],
+    }),
+  );
+  await boardPage.waitForBufferedWritesDrained();
+  await server.waitForStoredBoard(
+    server.dataPath,
+    name,
+    (board) => !!board.copy?.erasures?.length && !board.underneath,
+  );
+  await page.reload();
+  await page.waitForFunction(
+    () => document.documentElement.dataset.boardPhase === "ready",
+  );
+  await boardPage.waitForBoardWritable();
+  await boardPage.selectTool("eraser");
+  // The copy's hole follows a shear/scale/translation, including after reload.
+  await click(2900, 3000);
+  await expect(page.locator("#drawingArea #copy")).toHaveCount(1);
+  await click(2300, 2850);
+  await expect(page.locator("#drawingArea #copy")).toHaveCount(0);
+  await click(2500, 2000);
+  await expect(page.locator("#drawingArea #top")).toHaveCount(0);
+  await server.waitForStoredBoard(
+    server.dataPath,
+    name,
+    (board) => Object.keys(board).length === 0,
+  );
 });
 
 test("selecting the pen again keeps normal ink and SIZE", async ({
@@ -200,9 +330,11 @@ test("a partial eraser drag reaches overlapping objects and copies keep their ow
       return { x: q.x, y: q.y };
     });
   });
-  await page.mouse.move(points[0].x, points[0].y);
+  const [start, end] = points;
+  if (!start || !end) throw new Error("Missing eraser drag points");
+  await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(points[1].x, points[1].y, { steps: 8 });
+  await page.mouse.move(end.x, end.y, { steps: 8 });
   await page.mouse.up();
   for (const id of ["p", "r"])
     await expect(page.locator(`#drawingArea #${id}`)).toHaveAttribute(

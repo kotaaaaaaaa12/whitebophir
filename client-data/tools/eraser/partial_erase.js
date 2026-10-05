@@ -60,6 +60,34 @@ export function readErasures(raw) {
   });
 }
 
+/** @param {Erasure[]} parts @param {number} x @param {number} y */
+export function isErasedPoint(parts, x, y) {
+  return parts.some((part) => {
+    // The stored matrix maps the erasing gesture into the object's local space.
+    // Invert it here so scaled, rotated and copied objects keep the same holes.
+    const m = part.transform;
+    const determinant = m.a * m.d - m.b * m.c;
+    const dx = x - m.e;
+    const dy = y - m.f;
+    const px = (m.d * dx - m.c * dy) / determinant;
+    const py = (m.a * dy - m.b * dx) / determinant;
+    const endX =
+      part.x === part.x2 && part.y === part.y2 ? part.x2 + 0.001 : part.x2;
+    const vx = endX - part.x;
+    const vy = part.y2 - part.y;
+    const lengthSquared = vx * vx + vy * vy;
+    const t = Math.max(
+      0,
+      Math.min(1, ((px - part.x) * vx + (py - part.y) * vy) / lengthSquared),
+    );
+    const distanceX = px - (part.x + t * vx);
+    const distanceY = py - (part.y + t * vy);
+    return (
+      distanceX * distanceX + distanceY * distanceY <= (part.size / 2) ** 2
+    );
+  });
+}
+
 /** @param {string} id */
 export function maskId(id) {
   return `wbo-mask-${Array.from(id, (c) => c.codePointAt(0)?.toString(16)).join("-")}`;

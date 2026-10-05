@@ -24,7 +24,13 @@
  * @licend
  */
 
-import { eraseElement, maskId, normalizeErasure } from "./partial_erase.js";
+import {
+  eraseElement,
+  isErasedPoint,
+  maskId,
+  normalizeErasure,
+  readErasures,
+} from "./partial_erase.js";
 import { logFrontendEvent } from "../../js/frontend_logging.js";
 import {
   getMutationType,
@@ -36,7 +42,7 @@ import { TOOL_CODE_BY_ID } from "../tool-order.js";
 /** @typedef {ReturnType<typeof createDeleteMessage>} EraserDeleteMessage */
 /** @typedef {{tool: typeof toolCode, type: typeof MutationType.UPDATE, id: string, erasure: import("./partial_erase.js").Erasure}} EraserUpdateMessage */
 /** @typedef {EraserDeleteMessage | EraserUpdateMessage} EraserMessage */
-/** @typedef {{preventDefault(): void, target: EventTarget | null, type?: string, touches?: TouchList}} EraserPointerEvent */
+/** @typedef {{preventDefault(): void, target: EventTarget | null, type?: string, touches?: TouchList, clientX?: number, clientY?: number}} EraserPointerEvent */
 /** @typedef {ReturnType<typeof boot>} EraserState */
 
 export const toolId = "eraser";
@@ -90,6 +96,78 @@ function resolveTarget(evt) {
   return target;
 }
 
+/** @param {EraserState} state @param {SVGGraphicsElement} target @param {DOMPoint} point */
+function visibleAtPoint(state, target, point) {
+  const screen = state.board.svg.getScreenCTM();
+  const matrix = target.getScreenCTM();
+  if (
+    !screen ||
+    !matrix ||
+    Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-12
+  )
+    return false;
+  const local = point.matrixTransform(screen).matrixTransform(matrix.inverse());
+  if (
+    isErasedPoint(
+      readErasures(target.getAttribute("data-wbo-erasures")),
+      local.x,
+      local.y,
+    )
+  )
+    return false;
+  if (target instanceof SVGGeometryElement) {
+    const style = getComputedStyle(target);
+    return (
+      (style.stroke !== "none" && target.isPointInStroke(local)) ||
+      (style.fill !== "none" && target.isPointInFill(local))
+    );
+  }
+  // Text is already narrowed to the pointer by getIntersectionList.
+  return true;
+}
+
+/** @param {EraserState} state @param {number} x @param {number} y @param {EraserPointerEvent} evt */
+function resolveVisibleTarget(state, x, y, evt) {
+  const target = resolveTarget(evt);
+  if (
+    !(target instanceof SVGGraphicsElement) ||
+    !inDrawingArea(state, target) ||
+    !target.hasAttribute("data-wbo-erasures")
+  )
+    return target;
+  const pointer = evt.touches?.[0] || evt;
+  const screen = state.board.svg.getScreenCTM();
+  const point =
+    screen && pointer.clientX !== undefined && pointer.clientY !== undefined
+      ? new DOMPoint(pointer.clientX, pointer.clientY).matrixTransform(
+          screen.inverse(),
+        )
+      : new DOMPoint(x, y);
+  if (visibleAtPoint(state, target, point)) return target;
+
+  // SVG masks affect painting, but not native hit testing. Look through holes
+  // in reverse paint order and delete only an object visibly under the pointer.
+  const area = state.board.svg.createSVGRect();
+  area.x = point.x - 0.005;
+  area.y = point.y - 0.005;
+  area.width = area.height = 0.01;
+  const candidates = state.board.svg.getIntersectionList(
+    area,
+    state.board.drawingArea,
+  );
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const candidate = candidates[i];
+    if (
+      candidate instanceof SVGGraphicsElement &&
+      candidate.parentNode === state.board.drawingArea &&
+      candidate.id &&
+      visibleAtPoint(state, candidate, point)
+    )
+      return candidate;
+  }
+  return null;
+}
+
 /** @param {string} id */
 function createDeleteMessage(id) {
   return {
@@ -106,8 +184,6 @@ function createDeleteMessage(id) {
  * @param {EraserPointerEvent} evt
  */
 export function press(state, x, y, evt) {
-  void x;
-  void y;
   evt.preventDefault();
   state.erasing = true;
   state.lastPoint = { x, y };
@@ -122,15 +198,14 @@ export function press(state, x, y, evt) {
  * @param {EraserPointerEvent} evt
  */
 export function move(state, x, y, evt) {
-  void x;
-  void y;
   if (state.erasing && state.secondary.active) {
     state.pendingPoint = { x, y };
     if (state.frame === null)
       state.frame = requestAnimationFrame(() => flushPartialErase(state));
     return;
   }
-  const target = resolveTarget(/** @type {EraserPointerEvent} */ (evt));
+  if (!state.erasing) return;
+  const target = resolveVisibleTarget(state, x, y, evt);
   if (
     state.erasing &&
     target !== null &&
