@@ -19,6 +19,7 @@ const CHAT_ERRORS = new Set([
   "chat_delete_failed",
   "chat_delete_forbidden",
 ]);
+const OLDER_HISTORY_THRESHOLD = 80;
 
 /** @template T @param {AppSocket} socket @param {string} event @param {object} payload @returns {Promise<T>} */
 function request(socket, event, payload) {
@@ -58,6 +59,7 @@ export class BoardChat {
     this.isOpen = false;
     this.loaded = false;
     this.loading = false;
+    this.historyFailed = false;
     this.sending = false;
     this.canDelete = false;
     this.deletedIds = new Set();
@@ -105,9 +107,13 @@ export class BoardChat {
     });
     this.list = document.createElement("ol");
     this.list.className = "board-chat-messages";
+    this.list.tabIndex = 0;
     this.list.setAttribute("role", "log");
     this.list.setAttribute("aria-label", getTools().i18n.t("chat_title"));
     this.list.setAttribute("aria-relevant", "additions");
+    this.list.addEventListener("scroll", () => this.loadOlderIfNearTop(), {
+      passive: true,
+    });
     this.status = document.createElement("p");
     this.status.className = "board-chat-status";
     this.status.setAttribute("role", "status");
@@ -221,12 +227,25 @@ export class BoardChat {
     this.syncConnection();
     if (!this.loaded) void this.loadHistory();
     this.list.scrollTop = this.list.scrollHeight;
+    this.loadOlderIfNearTop();
   }
 
   close() {
     this.isOpen = false;
     this.panel.hidden = true;
     this.toggle.setAttribute("aria-expanded", "false");
+  }
+
+  loadOlderIfNearTop() {
+    if (
+      this.isOpen &&
+      this.loaded &&
+      !this.loading &&
+      !this.historyFailed &&
+      this.nextBefore !== null &&
+      this.list.scrollTop <= OLDER_HISTORY_THRESHOLD
+    )
+      void this.loadHistory(this.nextBefore);
   }
 
   /** @param {string} key */
@@ -415,12 +434,13 @@ export class BoardChat {
     if (this.loading || !socket || !this.syncConnection()) return;
     const generation = ++this.generation;
     this.loading = true;
+    this.historyFailed = false;
     this.older.disabled = true;
+    this.older.hidden = true;
     this.showStatus("chat_loading");
-    const scrollTop = this.list.scrollTop,
-      scrollHeight = this.list.scrollHeight;
     if (before === null) {
       this.messages.clear();
+      this.nextBefore = null;
       this.render();
     }
     try {
@@ -433,13 +453,24 @@ export class BoardChat {
       );
       if (generation !== this.generation) return;
       if (page && !page.ok) {
-        this.loaded = false;
+        if (before === null) this.loaded = false;
+        this.historyFailed = true;
         this.showStatus(
           CHAT_ERRORS.has(page.error) ? page.error : "chat_history_failed",
         );
         return;
       }
-      if (!validPage(page)) throw new Error("Invalid chat history response");
+      if (
+        !validPage(page) ||
+        (before !== null &&
+          page.nextBefore !== null &&
+          page.nextBefore >= before)
+      )
+        throw new Error("Invalid chat history response");
+      // Capture the current reading position, since the user may have kept
+      // scrolling while the request was in flight. Prepending must not rewind it.
+      const scrollTop = this.list.scrollTop,
+        scrollHeight = this.list.scrollHeight;
       this.canDelete = page.canDelete === true;
       for (const message of page.messages)
         if (!this.deletedIds.has(message.id))
@@ -447,7 +478,6 @@ export class BoardChat {
       this.nextBefore = page.nextBefore;
       this.loaded = true;
       this.render();
-      this.older.hidden = this.nextBefore === null;
       this.list.scrollTop =
         before === null
           ? this.list.scrollHeight
@@ -455,13 +485,17 @@ export class BoardChat {
       this.showStatus(this.messages.size === 0 ? "chat_empty" : "");
     } catch {
       if (generation === this.generation) {
-        this.loaded = false;
+        if (before === null) this.loaded = false;
+        this.historyFailed = true;
         this.showStatus("chat_history_failed");
       }
     } finally {
       if (generation === this.generation) {
         this.loading = false;
         this.older.disabled = false;
+        this.older.hidden = !this.historyFailed || this.nextBefore === null;
+        // Short or deletion-filtered pages may not fill the panel yet.
+        if (!this.historyFailed) this.loadOlderIfNearTop();
       }
     }
   }

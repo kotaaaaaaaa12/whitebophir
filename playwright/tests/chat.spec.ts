@@ -162,14 +162,37 @@ test("history paginates beyond 100 messages and stays inside short mobile and RT
   await page.locator("#boardChatToggle").tap();
   const panel = page.locator("#boardChatPanel");
   const older = panel.locator(":scope > button");
+  const list = panel.locator(".board-chat-messages");
   await expect(panel.locator("li")).toHaveCount(50);
-  await older.tap();
+  await expect(older).toBeHidden();
+  const anchor = await list.evaluate((element) => {
+    element.scrollTop = 40;
+    const row = element.firstElementChild as HTMLElement;
+    return {
+      id: row.dataset.messageId,
+      top:
+        row.getBoundingClientRect().top - element.getBoundingClientRect().top,
+    };
+  });
   await expect(panel.locator("li")).toHaveCount(100);
-  await older.tap();
+  await expect
+    .poll(() =>
+      list.evaluate((element, anchor) => {
+        const row = element.querySelector(`[data-message-id="${anchor.id}"]`);
+        if (!row) throw new Error("Reading anchor disappeared");
+        return Math.abs(
+          row.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            anchor.top,
+        );
+      }, anchor),
+    )
+    .toBeLessThanOrEqual(1);
+  await list.focus();
+  await list.press("Home");
   await expect(panel.locator("li")).toHaveCount(103);
   await expect(older).toBeHidden();
   await expect(panel.locator("li p").first()).toHaveText("saved 1");
-  const list = panel.locator(".board-chat-messages");
   await list.evaluate((element) => {
     element.scrollTop = 0;
   });
@@ -217,6 +240,137 @@ test("history paginates beyond 100 messages and stays inside short mobile and RT
       path: testInfo.outputPath(`chat-${viewport.width}.png`),
     });
   }
+});
+
+test("automatic history coalesces scrolls, keeps the current reading position and offers retry on failure", async ({
+  boardPage,
+  page,
+}) => {
+  await boardPage.gotoBoard("chat-auto-history");
+  await boardPage.waitForSocketConnected();
+  await page.evaluate(() => {
+    const socket = window.WBOApp.connection.socket;
+    if (!socket) throw new Error("Socket is missing");
+    const emit = socket.emit.bind(socket);
+    const cursors: Array<number | null> = [];
+    let attempts = 0;
+    socket.emit = ((event: string, ...args: unknown[]) => {
+      if (event !== "chat_history") return emit(event, ...args);
+      const before = (args[0] as { before?: number }).before ?? null;
+      cursors.push(before);
+      document.documentElement.dataset.chatHistoryRequests =
+        JSON.stringify(cursors);
+      const respond = args[1] as (response: unknown) => void;
+      if (before === 21) {
+        attempts++;
+        if (attempts === 1) {
+          respond({ ok: false, error: "chat_history_failed" });
+          return socket;
+        }
+        if (attempts === 2) {
+          respond({ ok: true, messages: [], nextBefore: before });
+          return socket;
+        }
+      }
+      const end = (before ?? 121) - 1;
+      const start = Math.max(1, end - 49);
+      const reply = () =>
+        respond({
+          ok: true,
+          nextBefore: start > 1 ? start : null,
+          messages: Array.from({ length: end - start + 1 }, (_, index) => ({
+            id: start + index,
+            name: "Reader",
+            text: `saved ${start + index}`,
+            sentAt: 1700000000000,
+          })),
+        });
+      if (before === 71)
+        document.addEventListener("test:release-chat-history", reply, {
+          once: true,
+        });
+      else reply();
+      return socket;
+    }) as typeof socket.emit;
+  });
+  await page.locator("#boardChatToggle").tap();
+  const panel = page.locator("#boardChatPanel");
+  const list = panel.locator(".board-chat-messages");
+  const older = panel.locator(":scope > button");
+  await expect(panel.locator("li")).toHaveCount(50);
+  await list.evaluate((element) => {
+    element.scrollTop = 40;
+  });
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-chat-history-requests",
+    "[null,71]",
+  );
+  const anchor = await list.evaluate((element) => {
+    element.scrollTop = 160;
+    for (let i = 0; i < 5; i++) element.dispatchEvent(new Event("scroll"));
+    const top = element.getBoundingClientRect().top;
+    const row = Array.from(element.children).find(
+      (row) => row.getBoundingClientRect().bottom > top,
+    ) as HTMLElement;
+    return {
+      id: row.dataset.messageId,
+      top: row.getBoundingClientRect().top - top,
+    };
+  });
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-chat-history-requests",
+    "[null,71]",
+  );
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("test:release-chat-history")),
+  );
+  await expect(panel.locator("li")).toHaveCount(100);
+  await expect
+    .poll(() =>
+      list.evaluate((element, anchor) => {
+        const row = element.querySelector(`[data-message-id="${anchor.id}"]`);
+        if (!row) throw new Error("Reading anchor disappeared");
+        return Math.abs(
+          row.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            anchor.top,
+        );
+      }, anchor),
+    )
+    .toBeLessThanOrEqual(1);
+  await list.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect(older).toBeVisible();
+  await expect(panel.locator("li")).toHaveCount(100);
+  await list.evaluate((element) => {
+    for (let i = 0; i < 5; i++) element.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-chat-history-requests",
+    "[null,71,21]",
+  );
+  await older.tap();
+  // A cursor that does not advance must stop automatic fetches as well.
+  await expect(older).toBeVisible();
+  await expect(older).toBeEnabled();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-chat-history-requests",
+    "[null,71,21,21]",
+  );
+  await expect(panel.locator("li")).toHaveCount(100);
+  await older.tap();
+  await expect(panel.locator("li")).toHaveCount(120);
+  await expect(older).toBeHidden();
+  await expect(panel.locator("li p").first()).toHaveText("saved 1");
+  await list.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-chat-history-requests",
+    "[null,71,21,21,21]",
+  );
 });
 
 test("a cold touch activation opens once despite extra taps and touch needs no compatibility click", async ({
