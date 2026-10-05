@@ -1,3 +1,4 @@
+import { normalizeErasure } from "../../client-data/tools/eraser/partial_erase.js";
 import MessageCommon from "../../client-data/js/message_common.js";
 import {
   getToolId,
@@ -36,7 +37,7 @@ import { Cursor, TOOLS } from "../../client-data/tools/index.js";
 /** @typedef {{[key: string]: FieldSpec}} FieldSchema */
 /** @typedef {{[tool: number]: {[type: number]: FieldSchema}}} LiveToolSchemas */
 /** @typedef {import("../../client-data/tools/shape_contract.js").ToolContract} ToolContract */
-/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId"} SchemaFieldType */
+/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId" | "erasure"} SchemaFieldType */
 
 const MAX_TOOL_CODE = TOOLS.length;
 const SHAPE_CONTRACTS = TOOLS.filter((tool) => tool.shapeTool === true);
@@ -287,6 +288,11 @@ function parseSchemaFieldSpec(spec) {
 function buildSchemaField(type, optionalField) {
   const make = optionalField ? optional : required;
   switch (type) {
+    case "erasure":
+      return make((value, _raw, _normalized, maxBoardSize) => {
+        const erasure = normalizeErasure(value, maxBoardSize);
+        return erasure ? accepted(erasure) : rejected("invalid erasure");
+      });
     case "id":
       return make(normalizeId);
     case "coord":

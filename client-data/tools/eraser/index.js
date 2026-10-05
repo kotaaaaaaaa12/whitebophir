@@ -24,6 +24,7 @@
  * @licend
  */
 
+import { eraseElement, maskId, normalizeErasure } from "./partial_erase.js";
 import { logFrontendEvent } from "../../js/frontend_logging.js";
 import {
   getMutationType,
@@ -33,7 +34,8 @@ import { TOOL_CODE_BY_ID } from "../tool-order.js";
 
 /** @import { ToolBootContext } from "../../../types/app-runtime" */
 /** @typedef {ReturnType<typeof createDeleteMessage>} EraserDeleteMessage */
-/** @typedef {EraserDeleteMessage} EraserMessage */
+/** @typedef {{tool: typeof toolCode, type: typeof MutationType.UPDATE, id: string, erasure: import("./partial_erase.js").Erasure}} EraserUpdateMessage */
+/** @typedef {EraserDeleteMessage | EraserUpdateMessage} EraserMessage */
 /** @typedef {{preventDefault(): void, target: EventTarget | null, type?: string, touches?: TouchList}} EraserPointerEvent */
 /** @typedef {ReturnType<typeof boot>} EraserState */
 
@@ -41,8 +43,11 @@ export const toolId = "eraser";
 const toolCode = TOOL_CODE_BY_ID[toolId];
 export const shortcut = "e";
 export const showMarker = true;
+export const helpText = "eraser_help";
+export const updatableFields = ["erasure"];
 export const liveMessageFields = /** @type {const} */ ({
   [MutationType.DELETE]: { id: "id" },
+  [MutationType.UPDATE]: { id: "id", erasure: "erasure" },
 });
 
 /**
@@ -105,7 +110,9 @@ export function press(state, x, y, evt) {
   void y;
   evt.preventDefault();
   state.erasing = true;
-  move(state, x, y, evt);
+  state.lastPoint = { x, y };
+  if (state.secondary.active) eraseSegment(state, x, y);
+  else move(state, x, y, evt);
 }
 
 /**
@@ -117,6 +124,12 @@ export function press(state, x, y, evt) {
 export function move(state, x, y, evt) {
   void x;
   void y;
+  if (state.erasing && state.secondary.active) {
+    state.pendingPoint = { x, y };
+    if (state.frame === null)
+      state.frame = requestAnimationFrame(() => flushPartialErase(state));
+    return;
+  }
   const target = resolveTarget(/** @type {EraserPointerEvent} */ (evt));
   if (
     state.erasing &&
@@ -130,16 +143,113 @@ export function move(state, x, y, evt) {
   }
 }
 
-/** @param {EraserState} state */
-export function release(state) {
+/** @param {EraserState} state @param {number} [x] @param {number} [y] */
+export function release(state, x, y) {
+  if (
+    state.erasing &&
+    state.secondary.active &&
+    x !== undefined &&
+    y !== undefined &&
+    (x !== state.lastPoint?.x || y !== state.lastPoint?.y)
+  )
+    state.pendingPoint = { x, y };
+  flushPartialErase(state);
   state.erasing = false;
+  state.lastPoint = null;
+}
+
+/** @param {EraserState} state */
+function flushPartialErase(state) {
+  if (state.frame !== null) cancelAnimationFrame(state.frame);
+  state.frame = null;
+  const point = state.pendingPoint;
+  state.pendingPoint = null;
+  if (point && state.erasing) eraseSegment(state, point.x, point.y);
+}
+
+/** @param {EraserState} state @param {number} x @param {number} y */
+function eraseSegment(state, x, y) {
+  const previous = state.lastPoint || { x, y };
+  const size = state.preferences.getSize();
+  const area = state.board.svg.createSVGRect();
+  area.x = Math.min(previous.x, x) - size / 2;
+  area.y = Math.min(previous.y, y) - size / 2;
+  area.width = Math.abs(previous.x - x) + size;
+  area.height = Math.abs(previous.y - y) + size;
+  const targets = state.board.svg.getIntersectionList(
+    area,
+    state.board.drawingArea,
+  );
+  const key = state.ids.generateUID("er");
+  for (const target of Array.from(targets)) {
+    if (
+      !(target instanceof SVGGraphicsElement) ||
+      target.parentNode !== state.board.drawingArea ||
+      !target.id
+    )
+      continue;
+    const matrix = target.transform.baseVal.consolidate()?.matrix;
+    if (matrix && Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-12)
+      continue;
+    const inverse = matrix
+      ? matrix.inverse()
+      : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    const erasure = normalizeErasure({
+      key,
+      x: previous.x,
+      y: previous.y,
+      x2: x,
+      y2: y,
+      size,
+      transform: {
+        a: inverse.a,
+        b: inverse.b,
+        c: inverse.c,
+        d: inverse.d,
+        e: inverse.e,
+        f: inverse.f,
+      },
+    });
+    if (erasure)
+      state.writes.drawAndSend({
+        tool: toolCode,
+        type: MutationType.UPDATE,
+        id: target.id,
+        erasure,
+      });
+  }
+  state.lastPoint = { x, y };
+}
+
+/** @param {EraserState} state */
+export function onquit(state) {
+  release(state);
+}
+/** @param {EraserState} state */
+export function onSocketDisconnect(state) {
+  if (state.frame !== null) cancelAnimationFrame(state.frame);
+  state.frame = null;
+  state.pendingPoint = null;
+  state.erasing = false;
+  state.lastPoint = null;
 }
 
 /**
  * @param {EraserState} state
- * @param {EraserMessage | {type?: unknown, id?: string}} data
+ * @param {EraserMessage | {type?: unknown, id?: string, erasure?: unknown}} data
  */
 export function draw(state, data) {
+  if (getMutationType(data) === MutationType.UPDATE && "erasure" in data) {
+    const part = normalizeErasure(data.erasure);
+    const target = data.id ? state.board.svg.getElementById(data.id) : null;
+    if (
+      part &&
+      target instanceof SVGGraphicsElement &&
+      target.parentNode === state.board.drawingArea
+    )
+      eraseElement(state.board.svg, target, part);
+    return;
+  }
   if (getMutationType(data) !== MutationType.DELETE) {
     logFrontendEvent("error", "tool.eraser.draw_invalid_type", {
       mutationType: data?.type,
@@ -159,16 +269,40 @@ export function draw(state, data) {
       id: data.id,
     });
   } else {
+    state.board.svg.getElementById(maskId(elem.id))?.remove();
     state.board.drawingArea.removeChild(elem);
   }
 }
 
 /** @param {ToolBootContext} ctx */
 export function boot(ctx) {
-  return {
+  const state = {
     board: ctx.runtime.board,
     writes: ctx.runtime.writes,
+    preferences: ctx.runtime.preferences,
+    ids: ctx.runtime.ids,
     erasing: false,
+    lastPoint: /** @type {{x: number, y: number} | null} */ (null),
+    pendingPoint: /** @type {{x: number, y: number} | null} */ (null),
+    frame: /** @type {number | null} */ (null),
+    secondary: {
+      name: "partial_eraser",
+      icon: "tools/eraser/partial.svg",
+      active: false,
+      switch: () => {},
+    },
     mouseCursor: `url('${ctx.assetUrl("icon.svg")}') 8 24, crosshair`,
   };
+  state.secondary.switch = () => release(state);
+  return state;
+}
+
+/** @param {EraserState} state */
+export function cancelTouchGesture(state) {
+  onSocketDisconnect(state);
+}
+
+/** @param {EraserState} state */
+export function onMutationRejected(state) {
+  onSocketDisconnect(state);
 }

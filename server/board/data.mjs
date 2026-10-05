@@ -1,3 +1,7 @@
+import {
+  MAX_ERASURES,
+  normalizeErasure,
+} from "../../client-data/tools/eraser/partial_erase.js";
 /**
  *                  WHITEBOPHIR SERVER
  *********************************************************
@@ -574,6 +578,22 @@ class BoardData {
    */
   makeUpdateCandidate(id, base, updateData) {
     if (typeof base !== "object") return null;
+    if (updateData.erasure !== undefined) {
+      if (!normalizeErasure(updateData.erasure)) return null;
+      if (
+        (base.attrs.erasures?.length || 0) >= MAX_ERASURES &&
+        !base.attrs.erasures.some(
+          (
+            /** @type {import("../../client-data/tools/eraser/partial_erase.js").Erasure} */ part,
+          ) => part.key === updateData.erasure.key,
+        )
+      )
+        return null;
+      return {
+        value: { id, tool: base.tool, transform: base.transform },
+        localBounds: cloneBounds(base.bounds),
+      };
+    }
     if (this.isTransformOnlyUpdate(updateData)) {
       return {
         value: {
@@ -614,18 +634,32 @@ class BoardData {
    * @returns {any}
    */
   applyUpdateToCanonicalItem(item, updateData, localBounds) {
-    const next = this.isTransformOnlyUpdate(updateData)
-      ? {
-          ...item,
-          attrs: {
-            ...item.attrs,
-          },
-          bounds: cloneBounds(localBounds),
-        }
-      : cloneCanonicalItem(item);
+    const next =
+      this.isTransformOnlyUpdate(updateData) || updateData.erasure !== undefined
+        ? {
+            ...item,
+            attrs: {
+              ...item.attrs,
+            },
+            bounds: cloneBounds(localBounds),
+          }
+        : cloneCanonicalItem(item);
     for (const key in updateData) {
       if (updateData[key] !== undefined) {
-        if (key === "transform") {
+        if (key === "erasure") {
+          if (
+            !next.attrs.erasures?.some(
+              (
+                /** @type {import("../../client-data/tools/eraser/partial_erase.js").Erasure} */ part,
+              ) => part.key === updateData.erasure.key,
+            )
+          ) {
+            next.attrs.erasures = [
+              ...(next.attrs.erasures || []),
+              updateData.erasure,
+            ];
+          }
+        } else if (key === "transform") {
           next.transform = structuredClone(updateData[key]);
         } else {
           next.attrs[key] = updateData[key];
@@ -636,11 +670,14 @@ class BoardData {
       next.payload.modifiedText = updateData.txt;
       next.textLength = updateData.txt.length;
     }
-    const boundsItem = publicItemFromCanonicalItem(next);
+    const boundsItem =
+      updateData.erasure === undefined
+        ? publicItemFromCanonicalItem(next)
+        : null;
     const text = currentText(next);
     if (boundsItem && text !== undefined) boundsItem.txt = text;
     next.bounds = cloneBounds(
-      this.isTransformOnlyUpdate(updateData)
+      this.isTransformOnlyUpdate(updateData) || updateData.erasure !== undefined
         ? localBounds
         : MessageCommon.getLocalGeometryBounds(boundsItem),
     );
@@ -798,6 +835,8 @@ class BoardData {
     if (typeof obj !== "object")
       return { ok: false, reason: "object not found" };
     if (!this.canUpdate(id, updateData)) {
+      if (updateData.erasure !== undefined)
+        return { ok: false, reason: "eraser limit reached" };
       if (this.shouldDropSeedShapeOnRejectedUpdate(obj.tool, obj, id)) {
         const deleteResult = this.delete(id);
         if (deleteResult.ok)

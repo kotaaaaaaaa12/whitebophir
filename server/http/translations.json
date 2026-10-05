@@ -10,7 +10,7 @@
     "configuration": "اعدادات",
     "create_private_board": "عمل لوحة خاصة جديدة",
     "ellipse": "بيضاوي",
-    "eraser": "ممحاة",
+    "eraser": "ممحاة الكائنات",
     "grid": "شبكة",
     "hand": "يد",
     "download": "تحميل",
@@ -155,7 +155,9 @@
     "chat_delete_confirm": "هل تريد حذف هذه الرسالة للجميع؟ لا يمكن التراجع عن ذلك.",
     "chat_delete_failed": "تعذّر حذف الرسالة. حاول مرة أخرى.",
     "chat_delete_forbidden": "يجب تسجيل الدخول كمسؤول لحذف رسائل الدردشة.",
-    "chat_unread": "الدردشة: {count} رسالة غير مقروءة"
+    "chat_unread": "الدردشة: {count} رسالة غير مقروءة",
+    "partial_eraser": "ممحاة جزئية",
+    "eraser_help": "اضغط على الممحاة مرة أخرى للتبديل. تستخدم الممحاة الجزئية حجم القلم."
   },
   "be": {
     "white-out": "Замазка",
@@ -168,7 +170,7 @@
     "configuration": "Налады",
     "create_private_board": "Стварыць прыватную дошку",
     "ellipse": "Эліпс",
-    "eraser": "Гумка",
+    "eraser": "Гумка аб’ектаў",
     "grid": "Сетка",
     "hand": "Рука",
     "download": "Спампаваць",
@@ -313,7 +315,9 @@
     "chat_delete_confirm": "Выдаліць гэта паведамленне для ўсіх? Гэта нельга адмяніць.",
     "chat_delete_failed": "Не ўдалося выдаліць паведамленне. Паспрабуйце яшчэ раз.",
     "chat_delete_forbidden": "Для выдалення паведамленняў чата неабходна ўвайсці як адміністратар.",
-    "chat_unread": "Чат: непрачытаных паведамленняў — {count}"
+    "chat_unread": "Чат: непрачытаных паведамленняў — {count}",
+    "partial_eraser": "Частковая гумка",
+    "eraser_help": "Націсніце гумку яшчэ раз, каб змяніць рэжым. Частковая гумка выкарыстоўвае памер пяра."
   },
   "ca": {
     "white-out": "Corrector blanc",
@@ -326,7 +330,7 @@
     "configuration": "Configuració",
     "create_private_board": "Crea una pissarra privada",
     "ellipse": "El·lipse",
-    "eraser": "Esborrador",
+    "eraser": "Esborrador d’objectes",
     "grid": "Graella",
     "hand": "Mà",
     "download": "Baixa",
@@ -471,7 +475,9 @@
     "chat_delete_confirm": "Vols suprimir aquest missatge per a tothom? No es pot desfer.",
     "chat_delete_failed": "No s’ha pogut suprimir el missatge. Torna-ho a provar.",
     "chat_delete_forbidden": "Cal iniciar sessió com a administrador per suprimir missatges del xat.",
-    "chat_unread": "Xat: {count} missatges sense llegir"
+    "chat_unread": "Xat: {count} missatges sense llegir",
+    "partial_eraser": "Esborrador parcial",
+    "eraser_help": "Prem l’esborrador de nou per canviar de mode. L’esborrador parcial utilitza la mida del llapis."
   },
   "de": {
     "board_name_placeholder": "Name des Whiteboards…",
@@ -483,7 +489,7 @@
     "configuration": "Konfiguration",
     "create_private_board": "Erstelle ein privates Whiteboard",
     "ellipse": "Ellipse",
-    "eraser": "Radierer",
+    "eraser": "Objektradierer",
     "grid": "Gitter",
     "hand": "Hand",
     "download": "Herunterladen",
@@ -629,7 +635,9 @@
     "chat_delete_confirm": "Diese Nachricht für alle löschen? Dies kann nicht rückgängig gemacht werden.",
     "chat_delete_failed": "Die Nachricht konnte nicht gelöscht werden. Versuche es erneut.",
     "chat_delete_forbidden": "Zum Löschen von Chatnachrichten ist eine Administratoranmeldung erforderlich.",
-    "chat_unread": "Chat: {count} ungelesene Nachrichten"
+    "chat_unread": "Chat: {count} ungelesene Nachrichten",
+    "partial_eraser": "Teilradierer",
+    "eraser_help": "Erneut auf den Radierer klicken, um den Modus zu wechseln. Der Teilradierer nutzt die Stiftgröße."
   },
   "en": {
     "white-out": "White-out",
@@ -642,7 +650,7 @@
     "configuration": "Configuration",
     "create_private_board": "Create a private board",
     "ellipse": "Ellipse",
-    "eraser": "Eraser",
+    "eraser": "Object eraser",
     "grid": "Grid",
     "hand": "Hand",
     "download": "Download",
@@ -787,7 +795,9 @@
     "chat_delete_confirm": "Delete this message for everyone? This cannot be undone.",
     "chat_delete_failed": "The message could not be deleted. Try again.",
     "chat_delete_forbidden": "Administrator sign-in is required to delete chat messages.",
-    "chat_unread": "Chat: {count} unread messages"
+    "chat_unread": "Chat: {count} unread messages",
+    "partial_eraser": "Partial eraser",
+    "eraser_help": "Press the eraser again to switch modes. Partial erasing uses the pen size."
   },
   "es": {
     "board_name_placeholder": "Nombre de la pizarra …",
@@ -799,7 +809,7 @@
     "configuration": "Configuration",
     "create_private_board": "Crea una pizarra privada",
     "ellipse": "Elipse",
-    "eraser": "Borrador",
+    "eraser": "Borrador de objetos",
     "grid": "Cuadrícula",
     "hand": "Mano",
     "index_title": "¡Bienvenido a WBO!",
@@ -945,7 +955,9 @@
     "chat_delete_confirm": "¿Eliminar este mensaje para todos? No se puede deshacer.",
     "chat_delete_failed": "No se pudo eliminar el mensaje. Inténtalo de nuevo.",
     "chat_delete_forbidden": "Debes iniciar sesión como administrador para eliminar mensajes del chat.",
-    "chat_unread": "Chat: {count} mensajes sin leer"
+    "chat_unread": "Chat: {count} mensajes sin leer",
+    "partial_eraser": "Borrador parcial",
+    "eraser_help": "Pulsa de nuevo el borrador para cambiar de modo. El borrador parcial utiliza el tamaño del lápiz."
   },
   "fr": {
     "board_name_placeholder": "Nom du tableau…",
@@ -956,7 +968,7 @@
     "color": "Couleur",
     "create_private_board": "Créer un tableau privé",
     "ellipse": "Ellipse",
-    "eraser": "Gomme",
+    "eraser": "Gomme d’objets",
     "grid": "Grille",
     "hand": "Main",
     "download": "Télécharger",
@@ -1102,7 +1114,9 @@
     "chat_delete_confirm": "Supprimer ce message pour tout le monde ? Cette action est irréversible.",
     "chat_delete_failed": "Le message n’a pas pu être supprimé. Réessayez.",
     "chat_delete_forbidden": "Une connexion administrateur est requise pour supprimer des messages du chat.",
-    "chat_unread": "Discussion : {count} messages non lus"
+    "chat_unread": "Discussion : {count} messages non lus",
+    "partial_eraser": "Gomme partielle",
+    "eraser_help": "Appuyez à nouveau sur la gomme pour changer de mode. La gomme partielle utilise la taille du crayon."
   },
   "hu": {
     "white-out": "Lefedő",
@@ -1115,7 +1129,7 @@
     "configuration": "Beállítások",
     "create_private_board": "Saját tábla létrehozása",
     "ellipse": "Ellipszis",
-    "eraser": "Radír",
+    "eraser": "Objektumradír",
     "grid": "Rács",
     "hand": "Kéz",
     "download": "Letöltés",
@@ -1260,7 +1274,9 @@
     "chat_delete_confirm": "Törlöd ezt az üzenetet mindenki számára? Ez nem vonható vissza.",
     "chat_delete_failed": "Az üzenetet nem sikerült törölni. Próbáld újra.",
     "chat_delete_forbidden": "A csevegés üzeneteinek törléséhez rendszergazdaként kell bejelentkezni.",
-    "chat_unread": "Csevegés: {count} olvasatlan üzenet"
+    "chat_unread": "Csevegés: {count} olvasatlan üzenet",
+    "partial_eraser": "Részleges radír",
+    "eraser_help": "A módváltáshoz kattints ismét a radírra. A részleges radír a toll méretét használja."
   },
   "id": {
     "white-out": "Cairan koreksi",
@@ -1273,7 +1289,7 @@
     "configuration": "Konfigurasi",
     "create_private_board": "Buat papan pribadi",
     "ellipse": "Elips",
-    "eraser": "Penghapus",
+    "eraser": "Penghapus objek",
     "grid": "Kisi",
     "hand": "Tangan",
     "download": "Unduh",
@@ -1418,7 +1434,9 @@
     "chat_delete_confirm": "Hapus pesan ini untuk semua orang? Tindakan ini tidak dapat dibatalkan.",
     "chat_delete_failed": "Pesan tidak dapat dihapus. Coba lagi.",
     "chat_delete_forbidden": "Masuk sebagai administrator untuk menghapus pesan obrolan.",
-    "chat_unread": "Obrolan: {count} pesan belum dibaca"
+    "chat_unread": "Obrolan: {count} pesan belum dibaca",
+    "partial_eraser": "Penghapus sebagian",
+    "eraser_help": "Tekan penghapus lagi untuk mengganti mode. Penghapus sebagian menggunakan ukuran pena."
   },
   "it": {
     "board_name_placeholder": "Nome della lavagna…",
@@ -1430,7 +1448,7 @@
     "configuration": "Configurazione",
     "create_private_board": "Crea una lavagna privata",
     "ellipse": "Ellisse",
-    "eraser": "Gomma",
+    "eraser": "Gomma per oggetti",
     "grid": "Griglia",
     "hand": "Mano",
     "index_title": "Benvenuti a WBO!",
@@ -1576,7 +1594,9 @@
     "chat_delete_confirm": "Eliminare questo messaggio per tutti? L’operazione non può essere annullata.",
     "chat_delete_failed": "Impossibile eliminare il messaggio. Riprova.",
     "chat_delete_forbidden": "Per eliminare i messaggi della chat devi accedere come amministratore.",
-    "chat_unread": "Chat: {count} messaggi non letti"
+    "chat_unread": "Chat: {count} messaggi non letti",
+    "partial_eraser": "Gomma parziale",
+    "eraser_help": "Premi di nuovo la gomma per cambiare modalità. La gomma parziale usa la dimensione della penna."
   },
   "ja": {
     "board_name_placeholder": "ボードの名前",
@@ -1588,7 +1608,7 @@
     "configuration": "設定",
     "create_private_board": "プライベートボードを作成する",
     "ellipse": "楕円",
-    "eraser": "消去",
+    "eraser": "オブジェクト消しゴム",
     "grid": "グリッド",
     "hand": "手のひらツール",
     "download": "ダウンロード",
@@ -1734,7 +1754,9 @@
     "chat_delete_confirm": "このメッセージを全員の履歴から削除しますか？元に戻せません。",
     "chat_delete_failed": "メッセージを削除できませんでした。もう一度お試しください。",
     "chat_delete_forbidden": "チャットの削除には管理者ログインが必要です。",
-    "chat_unread": "チャット：未読メッセージ {count} 件"
+    "chat_unread": "チャット：未読メッセージ {count} 件",
+    "partial_eraser": "部分消しゴム",
+    "eraser_help": "消しゴムをもう一度押すとモードが切り替わります。部分消しゴムはペンのSIZEを使います。"
   },
   "my": {
     "board_name_placeholder": "ဝှိုက်ဘုတ်အမည် ... ",
@@ -1746,7 +1768,7 @@
     "configuration": "ဖွဲ့စည်းမှု",
     "create_private_board": "ကိုယ်ပိုင် whiteboard တစ်ခုဖန်တီးပါ",
     "ellipse": "ဘဲဥပုံ",
-    "eraser": "ခဲဖျက်",
+    "eraser": "အရာဝတ္ထု ခဲဖျက်",
     "grid": "ဇယားကွက်",
     "hand": "လက်",
     "download": "ဒေါင်းလုပ်",
@@ -1892,7 +1914,9 @@
     "chat_delete_confirm": "ဤစာတိုကို လူတိုင်းအတွက် ဖျက်မလား။ ပြန်ယူ၍ မရပါ။",
     "chat_delete_failed": "စာတိုကို မဖျက်နိုင်ပါ။ ထပ်စမ်းကြည့်ပါ။",
     "chat_delete_forbidden": "စကားပြောစာတိုများကို ဖျက်ရန် စီမံခန့်ခွဲသူအဖြစ် ဝင်ရောက်ရန် လိုအပ်သည်။",
-    "chat_unread": "စကားပြောခန်း: မဖတ်ရသေးသော စာ {count} စောင်"
+    "chat_unread": "စကားပြောခန်း: မဖတ်ရသေးသော စာ {count} စောင်",
+    "partial_eraser": "တစ်စိတ်တစ်ပိုင်း ခဲဖျက်",
+    "eraser_help": "မုဒ်ပြောင်းရန် ခဲဖျက်ကို ထပ်နှိပ်ပါ။ တစ်စိတ်တစ်ပိုင်း ခဲဖျက်သည် ဘောပင်အရွယ်အစားကို အသုံးပြုသည်။"
   },
   "pt": {
     "white-out": "Branquejar",
@@ -1905,7 +1929,7 @@
     "configuration": "Configuração",
     "create_private_board": "Crie um quadro privado",
     "ellipse": "Elipse",
-    "eraser": "Borracha",
+    "eraser": "Borracha de objetos",
     "grid": "Grade",
     "hand": "Mão",
     "index_title": "Bem-vindo ao quadro branco online gratuito WBO!",
@@ -2050,7 +2074,9 @@
     "chat_delete_confirm": "Excluir esta mensagem para todos? Isso não pode ser desfeito.",
     "chat_delete_failed": "Não foi possível excluir a mensagem. Tente novamente.",
     "chat_delete_forbidden": "É necessário entrar como administrador para excluir mensagens do bate-papo.",
-    "chat_unread": "Chat: {count} mensagens não lidas"
+    "chat_unread": "Chat: {count} mensagens não lidas",
+    "partial_eraser": "Borracha parcial",
+    "eraser_help": "Prima a borracha novamente para mudar de modo. A borracha parcial usa o tamanho da caneta."
   },
   "ru": {
     "board_name_placeholder": "Название доски",
@@ -2061,7 +2087,7 @@
     "configuration": "Настройки",
     "create_private_board": "Создать приватную доску",
     "ellipse": "Эллипс",
-    "eraser": "Ластик",
+    "eraser": "Ластик объектов",
     "grid": "Сетка",
     "hand": "Рука",
     "download": "Скачать",
@@ -2208,7 +2234,9 @@
     "chat_delete_confirm": "Удалить это сообщение для всех? Это действие нельзя отменить.",
     "chat_delete_failed": "Не удалось удалить сообщение. Попробуйте ещё раз.",
     "chat_delete_forbidden": "Для удаления сообщений чата необходимо войти как администратор.",
-    "chat_unread": "Чат: непрочитанных сообщений — {count}"
+    "chat_unread": "Чат: непрочитанных сообщений — {count}",
+    "partial_eraser": "Частичный ластик",
+    "eraser_help": "Нажмите на ластик ещё раз, чтобы сменить режим. Частичный ластик использует размер пера."
   },
   "sw": {
     "board_name_placeholder": "Jina la ubao mweupe ...",
@@ -2220,7 +2248,7 @@
     "configuration": "usanidi",
     "create_private_board": "Unda ubao mweupe wa faragha",
     "ellipse": "ellipse",
-    "eraser": "eraser",
+    "eraser": "Kifutio cha vitu",
     "grid": "gridi",
     "hand": "mkono",
     "download": "Pakua",
@@ -2366,7 +2394,9 @@
     "chat_delete_confirm": "Ungependa kufuta ujumbe huu kwa kila mtu? Hili haliwezi kutenduliwa.",
     "chat_delete_failed": "Ujumbe haukuweza kufutwa. Jaribu tena.",
     "chat_delete_forbidden": "Ingia kama msimamizi ili kufuta ujumbe wa mazungumzo.",
-    "chat_unread": "Gumzo: ujumbe {count} ambao haujasomwa"
+    "chat_unread": "Gumzo: ujumbe {count} ambao haujasomwa",
+    "partial_eraser": "Kifutio cha sehemu",
+    "eraser_help": "Bonyeza kifutio tena kubadilisha hali. Kifutio cha sehemu hutumia ukubwa wa kalamu."
   },
   "th": {
     "board_name_placeholder": "ชื่อไวท์บอร์ด ...",
@@ -2380,7 +2410,7 @@
     "configuration": "การกำหนดค่า",
     "create_private_board": "สร้างไวท์บอร์ดส่วนตัว",
     "ellipse": "วงรี",
-    "eraser": "ยางลบ",
+    "eraser": "ยางลบวัตถุ",
     "grid": "กริด",
     "hand": "มือ",
     "download": "ดาวน์โหลด",
@@ -2524,7 +2554,9 @@
     "chat_delete_confirm": "ลบข้อความนี้สำหรับทุกคนหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
     "chat_delete_failed": "ไม่สามารถลบข้อความได้ โปรดลองอีกครั้ง",
     "chat_delete_forbidden": "ต้องเข้าสู่ระบบในฐานะผู้ดูแลเพื่อ ลบข้อความแชต",
-    "chat_unread": "แชต: ข้อความที่ยังไม่ได้อ่าน {count} ข้อความ"
+    "chat_unread": "แชต: ข้อความที่ยังไม่ได้อ่าน {count} ข้อความ",
+    "partial_eraser": "ยางลบบางส่วน",
+    "eraser_help": "กดยางลบอีกครั้งเพื่อสลับโหมด ยางลบบางส่วนใช้ขนาดปากกา"
   },
   "uk": {
     "white-out": "Коректор",
@@ -2537,7 +2569,7 @@
     "configuration": "Налаштування",
     "create_private_board": "Створити особисту дошку",
     "ellipse": "Еліпс",
-    "eraser": "Ґумка",
+    "eraser": "Гумка об’єктів",
     "grid": "Сітка",
     "hand": "Рука",
     "download": "Завантажити",
@@ -2682,7 +2714,9 @@
     "chat_delete_confirm": "Видалити це повідомлення для всіх? Цю дію не можна скасувати.",
     "chat_delete_failed": "Не вдалося видалити повідомлення. Спробуйте ще раз.",
     "chat_delete_forbidden": "Для видалення повідомлень чату потрібно ввійти як адміністратор.",
-    "chat_unread": "Чат: непрочитаних повідомлень — {count}"
+    "chat_unread": "Чат: непрочитаних повідомлень — {count}",
+    "partial_eraser": "Часткова гумка",
+    "eraser_help": "Натисніть гумку ще раз, щоб змінити режим. Часткова гумка використовує розмір пера."
   },
   "vi": {
     "white-out": "Bút xóa",
@@ -2696,7 +2730,7 @@
     "configuration": "Cấu hình",
     "create_private_board": "Tạo một bảng riêng",
     "ellipse": "Hình elip",
-    "eraser": "Tẩy",
+    "eraser": "Tẩy đối tượng",
     "grid": "Lưới",
     "hand": "Tay",
     "index_title": "Chào mừng bạn đến với WBO bảng trắng trực tuyến miễn phí!",
@@ -2840,7 +2874,9 @@
     "chat_delete_confirm": "Xóa tin nhắn này cho tất cả mọi người? Không thể hoàn tác.",
     "chat_delete_failed": "Không thể xóa tin nhắn. Vui lòng thử lại.",
     "chat_delete_forbidden": "Cần đăng nhập với quyền quản trị viên để xóa tin nhắn trò chuyện.",
-    "chat_unread": "Trò chuyện: {count} tin nhắn chưa đọc"
+    "chat_unread": "Trò chuyện: {count} tin nhắn chưa đọc",
+    "partial_eraser": "Tẩy một phần",
+    "eraser_help": "Nhấn lại vào tẩy để đổi chế độ. Tẩy một phần sử dụng kích thước bút."
   },
   "zh-CN": {
     "board_name_placeholder": "白板名称",
@@ -2852,7 +2888,7 @@
     "configuration": "设置",
     "create_private_board": "创建私人白板",
     "ellipse": "椭圆",
-    "eraser": "橡皮",
+    "eraser": "对象橡皮擦",
     "grid": "网格",
     "hand": "移动",
     "download": "下载",
@@ -2998,7 +3034,9 @@
     "chat_delete_confirm": "为所有人删除此消息？此操作无法撤销。",
     "chat_delete_failed": "无法删除消息。请重试。",
     "chat_delete_forbidden": "删除聊天消息需要管理员登录。",
-    "chat_unread": "聊天：{count} 条未读消息"
+    "chat_unread": "聊天：{count} 条未读消息",
+    "partial_eraser": "局部橡皮擦",
+    "eraser_help": "再次点击橡皮擦可切换模式。局部橡皮擦使用画笔大小。"
   },
   "zh-TW": {
     "board_name_placeholder": "白板名稱",
@@ -3010,7 +3048,7 @@
     "configuration": "設定",
     "create_private_board": "建立私人白板",
     "ellipse": "橢圓形",
-    "eraser": "橡皮擦",
+    "eraser": "物件橡皮擦",
     "grid": "網格",
     "hand": "移動",
     "index_title": "歡迎來到 WBO！",
@@ -3156,7 +3194,9 @@
     "chat_delete_confirm": "為所有人刪除此訊息？此操作無法復原。",
     "chat_delete_failed": "無法刪除訊息。請重試。",
     "chat_delete_forbidden": "刪除聊天訊息需要管理員登入。",
-    "chat_unread": "聊天：{count} 則未讀訊息"
+    "chat_unread": "聊天：{count} 則未讀訊息",
+    "partial_eraser": "局部橡皮擦",
+    "eraser_help": "再次點擊橡皮擦可切換模式。局部橡皮擦使用畫筆大小。"
   },
   "pl": {
     "board_name_placeholder": "Nazwa tablicy",
@@ -3167,7 +3207,7 @@
     "configuration": "Ustawienia",
     "create_private_board": "Utwórz tablicę prywatną",
     "ellipse": "Elipsa",
-    "eraser": "gumka",
+    "eraser": "Gumka do obiektów",
     "grid": "Siatka",
     "hand": "Ręka",
     "download": "Pobierz",
@@ -3314,6 +3354,8 @@
     "chat_delete_confirm": "Usunąć tę wiadomość dla wszystkich? Tej operacji nie można cofnąć.",
     "chat_delete_failed": "Nie udało się usunąć wiadomości. Spróbuj ponownie.",
     "chat_delete_forbidden": "Usuwanie wiadomości czatu wymaga zalogowania jako administrator.",
-    "chat_unread": "Czat: nieprzeczytane wiadomości — {count}"
+    "chat_unread": "Czat: nieprzeczytane wiadomości — {count}",
+    "partial_eraser": "Gumka częściowa",
+    "eraser_help": "Naciśnij gumkę ponownie, aby zmienić tryb. Gumka częściowa używa rozmiaru pisaka."
   }
 }

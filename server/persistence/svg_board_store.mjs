@@ -1,3 +1,9 @@
+import {
+  decorateErasedTag,
+  renderMask,
+  replaceMaskDefs,
+} from "../../client-data/tools/eraser/partial_erase.js";
+import { escapeHtml as escapeErasureHtml } from "./xml_escape.mjs";
 import { once } from "node:events";
 import fs from "node:fs";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
@@ -315,7 +321,11 @@ function createStoredSvgSeqMismatchError(expectedSeq, actualSeq) {
 function serializeStoredSvg(board, metadata, seq, svgExtent) {
   const items = collectSerializedSvgItems(board).itemTags;
   const envelope = createDefaultStoredSvgEnvelope(metadata, seq, svgExtent);
-  return serializeStoredSvgEnvelope(envelope.prefix, items, envelope.suffix);
+  return serializeStoredSvgEnvelope(
+    maskPrefix(envelope.prefix, Object.values(board)),
+    items,
+    envelope.suffix,
+  );
 }
 
 /**
@@ -570,7 +580,11 @@ async function writeBoardState(boardName, board, metadata, seq, options) {
     const itemTags = Object.values(board).map((item) =>
       serializeStoredSvgItem(item),
     );
-    svg = serializeStoredSvgEnvelope(prefix, itemTags, parsed.suffix);
+    svg = serializeStoredSvgEnvelope(
+      maskPrefix(prefix, Object.values(board)),
+      itemTags,
+      parsed.suffix,
+    );
   } catch (error) {
     if (errorCode(error) !== "ENOENT") {
       try {
@@ -646,7 +660,7 @@ async function migrateLegacyJsonBoardToSvg(boardName, parsed, options) {
   }
   const envelope = createDefaultStoredSvgEnvelope(parsed.metadata, 0);
   const svg = serializeStoredSvgEnvelope(
-    envelope.prefix,
+    maskPrefix(envelope.prefix, Object.values(parsed.board)),
     itemTags,
     envelope.suffix,
   );
@@ -708,10 +722,14 @@ function serializeCanonicalItemForStorage(item, options = {}) {
         `Missing persisted pencil path data for item "${item.id || "(unknown)"}"`,
       );
     }
-    return serializeStoredPencilPath(
+    return decorateErasedTag(
+      serializeStoredPencilPath(
+        storedItem,
+        pathData,
+        storedSvgSerializeHelpers,
+      ),
       storedItem,
-      pathData,
-      storedSvgSerializeHelpers,
+      escapeErasureHtml,
     );
   }
   return serializeStoredSvgItem(storedItem);
@@ -913,11 +931,14 @@ async function rewriteStoredSvgFromCanonical(
         }
         if (
           !output.write(
-            updateRootMetadata(
-              event.prefix,
-              metadata,
-              latestSeq,
-              options?.svgExtent,
+            maskPrefix(
+              updateRootMetadata(
+                event.prefix,
+                metadata,
+                latestSeq,
+                options?.svgExtent,
+              ),
+              itemsById.values(),
             ),
           )
         ) {
@@ -1141,3 +1162,21 @@ export {
   writeBoardState,
   writeCanonicalBoardState,
 };
+
+/** @param {string} prefix @param {Iterable<any>} items */
+function maskPrefix(prefix, items) {
+  let masks = "";
+  for (const item of items) {
+    if (item.deleted || !(item.attrs?.erasures || item.erasures)?.length)
+      continue;
+    const data = item.attrs ? publicItemFromCanonicalItem(item) : item;
+    masks += renderMask(
+      data.id,
+      data.erasures,
+      item.bounds || MessageCommon.getLocalGeometryBounds(data),
+      Number(data.size) || 1,
+      escapeErasureHtml,
+    );
+  }
+  return replaceMaskDefs(prefix, masks);
+}

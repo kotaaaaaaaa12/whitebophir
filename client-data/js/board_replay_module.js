@@ -56,6 +56,9 @@ export class ReplayModule {
       "data-wbo-readonly",
       baseline.readonly ? "true" : "false",
     );
+    dom.svg.querySelector?.('defs[data-wbo-eraser-defs="true"]')?.remove();
+    if (baseline.eraserDefsMarkup)
+      dom.svg.insertAdjacentHTML("afterbegin", baseline.eraserDefsMarkup);
     dom.drawingArea.innerHTML = baseline.drawingAreaMarkup;
     Tools.toolRegistry.normalizeServerRenderedElements();
   }

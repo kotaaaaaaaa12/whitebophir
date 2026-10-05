@@ -352,7 +352,6 @@ const LIVE_OVERLAY_ACTIVE_CLASS = "wbo-pencil-live-overlay-active";
 const LIVE_PATH_CLASS = "wbo-pencil-live-path";
 /** @typedef {{type: string, values: number[]}} PencilPathSegment */
 /** @typedef {PencilPathSegment[]} PencilPathData */
-/** @typedef {{name: string, icon: string, active: boolean, switch?: () => void}} PencilSecondary */
 /** @typedef {ReturnType<typeof createInitialState>} PencilState */
 /** @typedef {{lineId: string, createMessage: PencilCreateMessage}} PencilPressEffect */
 /** @typedef {{appendMessage: PencilAppendMessage | null, stopBefore: boolean, stopAfter: boolean, nextLastTime: number, nextHasSentPoint: boolean, nextChildCount: number}} PencilMoveEffect */
@@ -559,13 +558,11 @@ function createInitialState(ctx) {
     ids: runtime.ids,
     interaction: runtime.interaction,
     toolRegistry: runtime.toolRegistry,
-    AUTO_FINGER_WHITEOUT: serverConfig.AUTO_FINGER_WHITEOUT === true,
     MAX_PENCIL_CHILDREN:
       Number(serverConfig.MAX_CHILDREN) > 0
         ? Number(serverConfig.MAX_CHILDREN)
         : defaultMaxPencilChildren,
     minPencilIntervalMs: computeMinPencilIntervalMs(runtime.rateLimits),
-    hasUsedStylus: false,
     curLineId: "",
     lastTime: performance.now(),
     hasSentPoint: false,
@@ -576,13 +573,6 @@ function createInitialState(ctx) {
     liveOverlay: new PencilLiveOverlay(runtime.board, runtime.viewport),
     pathDataCache: /** @type {Record<string, PencilPathData>} */ ({}),
     rejectedLineDeletes: new Set(),
-    drawingSize: -1,
-    whiteOutSize: -1,
-    secondary: /** @type {PencilSecondary} */ ({
-      name: "White-out",
-      icon: "tools/pencil/whiteout_tape.svg",
-      active: false,
-    }),
     mouseCursor: `url('${ctx.assetUrl("cursor.svg")}'), crosshair`,
   };
 }
@@ -639,9 +629,9 @@ function createLineMessage(state, lineId) {
     tool: toolCode,
     type: MutationType.CREATE,
     id: lineId,
-    color: state.secondary.active ? "#ffffff" : state.preferences.getColor(),
+    color: state.preferences.getColor(),
     size: state.preferences.getSize(),
-    opacity: state.secondary.active ? 1 : state.preferences.getOpacity(),
+    opacity: state.preferences.getOpacity(),
   };
 }
 
@@ -918,59 +908,9 @@ function getBoardLineForAppend(state, parentId) {
   return fallbackLine;
 }
 
-/** @param {PencilState} state */
-function restoreDrawingSize(state) {
-  state.whiteOutSize = state.preferences.getSize();
-  if (state.drawingSize !== -1) state.preferences.setSize(state.drawingSize);
-}
-
-/** @param {PencilState} state */
-function restoreWhiteOutSize(state) {
-  state.drawingSize = state.preferences.getSize();
-  if (state.whiteOutSize !== -1) state.preferences.setSize(state.whiteOutSize);
-}
-
-/** @param {PencilState} state */
-function toggleSize(state) {
-  if (state.secondary.active) restoreWhiteOutSize(state);
-  else restoreDrawingSize(state);
-}
-
-/**
- * @param {PencilState} state
- * @param {TouchEvent} evt
- */
-function handleAutoWhiteOut(state, evt) {
-  const touch = evt.touches && evt.touches[0];
-  const touchType =
-    touch && "touchType" in touch
-      ? /** @type {{touchType?: string}} */ (touch).touchType
-      : undefined;
-  if (touchType === "stylus") {
-    if (state.hasUsedStylus && state.toolRegistry.current?.secondary?.active) {
-      state.toolRegistry.change(toolId);
-    }
-    state.hasUsedStylus = true;
-  }
-  if (touchType === "direct") {
-    if (
-      state.hasUsedStylus &&
-      state.toolRegistry.current?.secondary &&
-      !state.toolRegistry.current?.secondary?.active
-    ) {
-      state.toolRegistry.change(toolId);
-    }
-  }
-}
-
 /** @param {ToolBootContext} ctx */
 export function boot(ctx) {
-  const state = createInitialState(ctx);
-  state.secondary.switch = () => {
-    finishActiveStroke(state);
-    toggleSize(state);
-  };
-  return state;
+  return createInitialState(ctx);
 }
 
 /**
@@ -1032,13 +972,6 @@ export function draw(state, data, isLocal = false) {
  */
 export function press(state, x, y, evt) {
   evt.preventDefault();
-  if (
-    state.AUTO_FINGER_WHITEOUT &&
-    typeof TouchEvent !== "undefined" &&
-    evt instanceof TouchEvent
-  ) {
-    handleAutoWhiteOut(state, evt);
-  }
   const effect = createPencilPressEffect(state);
   state.curLineId = effect.lineId;
   state.activeLineData = null;
@@ -1174,14 +1107,11 @@ export function onMutationRejected(state, message) {
 
 /** @param {PencilState} state */
 export function onstart(state) {
-  state.hasUsedStylus = false;
   state.liveOverlay.activate();
-  if (state.secondary.active) restoreWhiteOutSize(state);
 }
 
 /** @param {PencilState} state */
 export function onquit(state) {
   finishActiveStroke(state);
   state.liveOverlay.deactivate();
-  if (state.secondary.active) restoreDrawingSize(state);
 }

@@ -248,9 +248,11 @@ export const TOOL_MANIFEST = Object.freeze([
   defineTool({
     toolId: "eraser",
     id: TOOL_CODE_BY_ID.eraser,
+    updatableFields: ["erasure"],
     requiredCapability: BOARD_CAPABILITY.EDIT,
     liveMessageFields: {
       [MutationType.DELETE]: { id: "id" },
+      [MutationType.UPDATE]: { id: "id", erasure: "erasure" },
     },
     shortcut: "e",
     mouseCursor: "crosshair",

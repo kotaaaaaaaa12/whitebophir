@@ -24,6 +24,7 @@
  * @licend
  */
 
+import { refreshMask } from "../eraser/partial_erase.js";
 import {
   extendBoundsWithBounds,
   measureSvgElementBoundsAfterTransform,
@@ -1192,6 +1193,8 @@ export function draw(state, data, isLocal = false) {
       );
       newElement.id = data.newid;
       state.Tools.board.drawingArea.appendChild(newElement);
+      if (newElement.getAttribute("data-wbo-erasures"))
+        refreshMask(state.Tools.board.svg, newElement);
       break;
     }
     case MutationType.DELETE:

@@ -1,3 +1,4 @@
+import { refreshMask } from "../tools/eraser/partial_erase.js";
 import {
   boardStateGrantsCapability,
   getToolIconPath,
@@ -16,7 +17,7 @@ import { isTextEntryTarget } from "./text_entry_target.js";
 export { isTextEntryTarget };
 
 /** @import { AppToolsState, BoardMessage, CompiledToolListener, CompiledToolListeners, MountedAppTool, MountedAppToolsState, PendingMessages, RateLimitKind, ToolBootContext, ToolModule, ToolPointerListener, ToolRuntimeState } from "../../types/app-runtime" */
-/** @typedef {{tool: import("../tools/tool-order.js").ToolCode, type?: unknown, id?: unknown, parent?: string, txt?: unknown, _children?: unknown, clientMutationId?: string, socket?: string, userId?: string, color?: string, size?: number | string, opacity?: number, x?: number, y?: number, x2?: number, y2?: number, newid?: string, transform?: {a: number, b: number, c: number, d: number, e: number, f: number}}} RuntimeBoardMessage */
+/** @typedef {{tool: import("../tools/tool-order.js").ToolCode, erasure?: import("../tools/eraser/partial_erase.js").Erasure, type?: unknown, id?: unknown, parent?: string, txt?: unknown, _children?: unknown, clientMutationId?: string, socket?: string, userId?: string, color?: string, size?: number | string, opacity?: number, x?: number, y?: number, x2?: number, y2?: number, newid?: string, transform?: {a: number, b: number, c: number, d: number, e: number, f: number}}} RuntimeBoardMessage */
 /** @typedef {{criticalToolNames: string[], pendingToolName: string}} InitialToolBootOptions */
 /** @typedef {{browserOwnsActiveTouchSequence: boolean, multiTouchOwnsActiveTouchSequence: boolean}} TouchDispatchState */
 
@@ -826,7 +827,24 @@ function createMountedTool(toolModule, toolState, toolName) {
     name: toolName,
     shortcut: toolModule.shortcut ?? toolDefinition?.shortcut,
     icon: "",
-    draw: (message, isLocal) => draw(toolState, message, isLocal),
+    draw: (message, isLocal) => {
+      draw(toolState, message, isLocal);
+      if (toolName === "eraser" || toolName === "hand") return;
+      const id =
+        "parent" in message
+          ? message.parent
+          : "id" in message
+            ? message.id
+            : null;
+      const dom = getAttachedBoardDom();
+      const target = id && dom ? dom.svg.getElementById(id) : null;
+      if (
+        target instanceof SVGGraphicsElement &&
+        target.getAttribute("data-wbo-erasures") &&
+        dom
+      )
+        refreshMask(dom.svg, target);
+    },
     normalizeServerRenderedElement: normalizeServerRenderedElement
       ? (element) => normalizeServerRenderedElement(toolState, element)
       : undefined,

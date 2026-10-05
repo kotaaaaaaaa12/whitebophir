@@ -1,3 +1,4 @@
+import { maskId, refreshMask } from "../tools/eraser/partial_erase.js";
 import { TOOL_ID_BY_CODE } from "../tools/tool-order.js";
 import { optimisticPrunePlanForAuthoritativeMessage } from "./authoritative_mutation_effects.js";
 import { getMutationType, MutationType } from "./message_tool_metadata.js";
@@ -32,6 +33,9 @@ export class OptimisticModule {
       return {
         kind: "drawing-area",
         markup: dom?.drawingArea.innerHTML || "",
+        eraserDefsMarkup: dom?.svg.querySelector?.(
+          'defs[data-wbo-eraser-defs="true"]',
+        )?.outerHTML,
       };
     }
     return {
@@ -95,17 +99,24 @@ export class OptimisticModule {
     const dom = getAttachedBoardDom(Tools);
     if (!dom) return;
     if (rollback.kind === "drawing-area") {
+      dom.svg.querySelector?.('defs[data-wbo-eraser-defs="true"]')?.remove();
+      if (rollback.eraserDefsMarkup)
+        dom.svg.insertAdjacentHTML("afterbegin", rollback.eraserDefsMarkup);
       dom.drawingArea.innerHTML = rollback.markup;
       return;
     }
     rollback.snapshots.forEach((snapshot) => {
       const current = dom.svg.getElementById(snapshot.id);
       if (snapshot.outerHTML === null) {
+        dom.svg.getElementById(maskId(snapshot.id))?.remove();
         current?.remove();
         return;
       }
       if (current) {
         current.outerHTML = snapshot.outerHTML;
+        const restored = dom.svg.getElementById(snapshot.id);
+        if (restored instanceof SVGGraphicsElement)
+          refreshMask(dom.svg, restored);
         return;
       }
       const nextSibling = snapshot.nextSiblingId
@@ -116,6 +127,9 @@ export class OptimisticModule {
       } else {
         dom.drawingArea.insertAdjacentHTML("beforeend", snapshot.outerHTML);
       }
+      const restored = dom.svg.getElementById(snapshot.id);
+      if (restored instanceof SVGGraphicsElement)
+        refreshMask(dom.svg, restored);
     });
   }
 

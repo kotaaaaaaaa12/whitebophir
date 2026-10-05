@@ -22,15 +22,15 @@ export function buildBoardSvgBaselineUrl(pathname, search) {
  * @typedef {{
  *   documentElement?: {
  *     getAttribute?: (name: string) => string | null | undefined,
- *     querySelector?: (selector: string) => { innerHTML?: string } | null | undefined,
+ *     querySelector?: (selector: string) => { innerHTML?: string, outerHTML?: string } | null | undefined,
  *   } | null,
- *   querySelector?: (selector: string) => { innerHTML?: string } | null | undefined,
+ *   querySelector?: (selector: string) => { innerHTML?: string, outerHTML?: string } | null | undefined,
  * }} BaselineSvgDocument
  */
 
 /**
  * @param {BaselineSvgDocument} doc
- * @returns {{seq: number, readonly: boolean, drawingAreaMarkup: string}}
+ * @returns {{seq: number, readonly: boolean, drawingAreaMarkup: string, eraserDefsMarkup?: string}}
  */
 function parseServedBaselineSvgDocument(doc) {
   const root = doc?.documentElement;
@@ -46,7 +46,11 @@ function parseServedBaselineSvgDocument(doc) {
   if (!drawingArea) {
     throw new Error("Missing drawing area");
   }
+  const eraserDefs = root.querySelector?.('defs[data-wbo-eraser-defs="true"]');
   return {
+    ...(eraserDefs?.outerHTML
+      ? { eraserDefsMarkup: eraserDefs.outerHTML }
+      : {}),
     seq: normalizeSeq(root.getAttribute("data-wbo-seq")),
     readonly: root.getAttribute("data-wbo-readonly") === "true",
     drawingAreaMarkup:
@@ -57,7 +61,7 @@ function parseServedBaselineSvgDocument(doc) {
 /**
  * @param {string} svgMarkup
  * @param {{parseFromString(svg: string, mimeType: string): BaselineSvgDocument}} domParser
- * @returns {{seq: number, readonly: boolean, drawingAreaMarkup: string}}
+ * @returns {{seq: number, readonly: boolean, drawingAreaMarkup: string, eraserDefsMarkup?: string}}
  */
 export function parseServedBaselineSvgText(svgMarkup, domParser) {
   const doc = domParser.parseFromString(svgMarkup, "image/svg+xml");

@@ -224,7 +224,8 @@ export function countDestructiveActions(data) {
   }
   const mutationType = getMutationType(data);
   return mutationType === MutationType.DELETE ||
-    mutationType === MutationType.CLEAR
+    mutationType === MutationType.CLEAR ||
+    (mutationType === MutationType.UPDATE && "erasure" in data)
     ? 1
     : 0;
 }

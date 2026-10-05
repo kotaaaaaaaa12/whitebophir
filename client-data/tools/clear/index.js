@@ -70,6 +70,9 @@ export function onstart(state) {
 
 /** @param {ClearToolState} state */
 export function draw(state) {
+  state.board.svg
+    .querySelector?.('defs[data-wbo-eraser-defs="true"]')
+    ?.remove();
   state.board.drawingArea.innerHTML = "";
 }
 

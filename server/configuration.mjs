@@ -117,7 +117,7 @@ export const BLOCKED_SELECTION_BUTTONS = parseCommaSeparatedEnv(
   "WBO_BLOCKED_SELECTION_BUTTONS",
 );
 
-/** Finger whiteout stays enabled unless this env var is explicitly set to `disabled`. */
+/** Legacy configuration compatibility; Pencil no longer has a whiteout mode. */
 export const AUTO_FINGER_WHITEOUT = parseDisabledFlagEnv(
   "AUTO_FINGER_WHITEOUT",
 );

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Partial eraser</title>
+  <g fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#fff" d="m15 37 20-20q4-4 8 0l8 8q4 4 0 8L34 50H19l-4-5q-4-4 0-8Z"/>
+    <path d="m27 25 16 16M8 53h14m8 0h7m8 0h11"/>
+    <circle cx="18" cy="24" r="10" stroke-dasharray="3 4"/>
+  </g>
+</svg>

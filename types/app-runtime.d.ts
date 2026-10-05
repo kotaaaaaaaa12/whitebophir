@@ -136,6 +136,7 @@ export type BoardMessage =
   | TextCreateMessage
   | TextUpdateMessage
   | EraserDeleteMessage
+  | WithMessageMetadata<EraserTool.EraserUpdateMessage>
   | HandUpdateMessage
   | HandDeleteMessage
   | HandCopyMessage
@@ -519,6 +520,7 @@ export type AuthoritativeBaseline = {
   seq: number;
   readonly: boolean;
   drawingAreaMarkup: string;
+  eraserDefsMarkup?: string;
 };
 
 export type OptimisticItemSnapshot = {
@@ -531,6 +533,7 @@ export type OptimisticRollback =
   | {
       readonly kind: "drawing-area";
       readonly markup: string;
+      readonly eraserDefsMarkup?: string;
     }
   | {
       readonly kind: "items";

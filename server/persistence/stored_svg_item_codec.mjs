@@ -1,4 +1,8 @@
 import {
+  readErasures,
+  decorateErasedTag,
+} from "../../client-data/tools/eraser/partial_erase.js";
+import {
   TOOL_BY_ID,
   TOOL_BY_STORED_TAG_NAME,
 } from "../../client-data/tools/index.js";
@@ -155,7 +159,7 @@ function summarizeStoredSvgItem(entry, paintOrder) {
   if (!id) return null;
   const contract = TOOL_BY_STORED_TAG_NAME[entry.tagName];
   if (contract) {
-    return contract.summarizeStoredSvgItem(entry, paintOrder, {
+    const summary = contract.summarizeStoredSvgItem(entry, paintOrder, {
       id,
       opacity,
       transform,
@@ -164,6 +168,13 @@ function summarizeStoredSvgItem(entry, paintOrder) {
       parseNumber,
       readStoredSvgAttribute,
     });
+    if (summary) {
+      const erasures = readErasures(
+        readStoredSvgAttribute(entry, "data-wbo-erasures"),
+      );
+      if (erasures.length) summary.data = { ...summary.data, erasures };
+    }
+    return summary;
   }
   return null;
 }
@@ -178,7 +189,11 @@ function serializeStoredSvgItem(item) {
   }
   const contract = TOOL_BY_ID[item.tool];
   if (contract && typeof contract.serializeStoredSvgItem === "function") {
-    return contract.serializeStoredSvgItem(item, storedSvgSerializeHelpers);
+    return decorateErasedTag(
+      contract.serializeStoredSvgItem(item, storedSvgSerializeHelpers),
+      item,
+      escapeHtml,
+    );
   }
   return "";
 }
