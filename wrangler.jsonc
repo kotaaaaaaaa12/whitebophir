@@ -1,34 +1,13 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "whitebophir",
-  "main": "cloudflare/worker.ts",
-  "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "containers": [
-    {
-      "class_name": "WhiteboardContainer",
-      "image": "./cloudflare/Dockerfile",
-      "image_build_context": ".",
-      "instance_type": "standard-2",
-      "max_instances": 1,
-      "constraints": {
-        "regions": ["APAC"]
-      }
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      { "name": "WHITEBOARD", "class_name": "WhiteboardContainer" },
-      { "name": "STORAGE", "class_name": "WhiteboardStorage" }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["WhiteboardContainer", "WhiteboardStorage"]
-    }
-  ],
-  "r2_buckets": [{ "binding": "BOARDS", "bucket_name": "whitebophir-boards" }],
-  "observability": { "enabled": true }
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "beatbump", "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-10-04", "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true, "observability": { "enabled": true },
+  "containers": [{
+    "class_name": "BeatbumpContainer", "image": "./Dockerfile",
+    "instance_type": "standard-3", "max_instances": 1,
+    "constraints": { "regions": ["APAC"] }
+  }],
+  "durable_objects": { "bindings": [{ "name": "BEATBUMP", "class_name": "BeatbumpContainer" }] },
+  "migrations": [{ "tag": "beatbump-v1", "new_sqlite_classes": ["BeatbumpContainer"] }]
 }

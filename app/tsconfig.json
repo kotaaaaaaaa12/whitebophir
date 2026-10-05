@@ -1,0 +1,27 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"strict": true,
+		"strictFunctionTypes": true,
+		"noUnusedLocals": true,
+		"strictNullChecks": true,
+		"paths": {
+			"$components/*": ["./src/lib/components/*"],
+			"$stores/*": ["./src/lib/stores/*"],
+			"$api/*": ["./src/routes/(app)/api/_lib/*"],
+			"$lib": ["./src/lib"],
+			"$lib/*": ["./src/lib/*"],
+			"$app/*": ["./.svelte-kit/runtime/app/*"]
+		}
+	},
+	"ts-node": {
+		"compilerOptions": {
+			"allowSyntheticDefaultImports": true,
+			"resolveJsonModule": true
+		},
+		"moduleTypes": {}
+	},
+	"exclude": ["node_modules/**"]
+}

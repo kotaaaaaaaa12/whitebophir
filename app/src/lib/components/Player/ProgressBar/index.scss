@@ -1,0 +1,109 @@
+.progress-bar {
+	width: 100%;
+	contain: paint;
+	overflow: hidden;
+	isolation: isolate;
+	background-clip: content-box;
+	background-color: rgb(60, 60, 66);
+	border: #0000 solid calc(var(--height) / 3);
+	border-radius: calc(var(--height) / 2);
+	height: var(--height);
+	position: absolute;
+}
+.hover {
+	background-color: #edecec66;
+	padding: inherit;
+	inset: 0;
+
+	position: absolute;
+	padding: 0;
+	z-index: 5;
+	width: 100%;
+	cursor: pointer;
+	transition: cubic-bezier(0.25, 0.46, 0.45, 0.94) 180ms transform;
+    will-change: transform;
+	transform-origin: 0% 50%;
+	overflow: hidden;
+	border-radius: 333333em;
+	isolation: isolate;
+}
+.progress-bar-wrapper {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+.progress-container {
+    --height: 1.3rem;
+    @media screen and (min-width: 768px) {
+        --height: 1rem;
+    }
+	contain: layout;
+	display: flex;
+	font-size: var(--base-font-size);
+	gap: 0.5em;
+	grid-template-columns: auto 1fr auto;
+	height: var(--height);
+	position: relative;
+	align-items: flex-end;
+	line-height: 1;
+}
+progress {
+	height: var(--height);
+	display: block;
+	width: 100%;
+	height: inherit;
+	top: 0;
+	cursor: pointer;
+	margin: 0;
+	-moz-appearance: none;
+	appearance: none;
+	background: #0000;
+	outline: none;
+	border: transparent;
+	padding: 0;
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	// border-radius: inherit;
+}
+
+progress::-webkit-progress-bar {
+	background-color: rgb(84, 84, 88);
+}
+progress::-moz-progress-bar {
+	background-color: #f3f3f3;
+	color: white;
+}
+progress::-webkit-progress-value {
+	background-color: rgb(255, 255, 255);
+    border-radius: 4px;
+    height:calc(calc(var(--height) + 1px) / 3);
+}
+
+.timestamp {
+	display: inline-block;
+	font-family: "InterVariable", system-ui, -apple-system, BlinkMacSystemFont,
+		"Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+		sans-serif;
+	font-size: calc(var(--base-font-size) * 0.95);
+	letter-spacing: -0.02em;
+    height:calc(calc(var(--height) + .1px) / 1.33);
+	white-space: nowrap;
+	vertical-align: middle;
+}
+
+.seek-control {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+	touch-action: none;
+}
+.progress-bar:focus-within {
+	outline: 2px solid white;
+	outline-offset: 2px;
+}

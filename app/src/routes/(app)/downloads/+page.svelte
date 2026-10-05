@@ -1,0 +1,607 @@
+<script lang="ts">
+	import { t, locale } from "$lib/i18n";
+	import Header from "$lib/components/Layouts/Header.svelte";
+	import Icon from "$lib/components/Icon/Icon.svelte";
+	import { onMount } from "svelte";
+	import { browser } from "$app/environment";
+	import { APIClient } from "$lib/api";
+	import list from "$lib/stores/list";
+
+	let tasks: any[] = [];
+	let expandedTaskID: number | null = null;
+	let taskTracks: any[] = [];
+
+	const fetchTasks = async () => {
+		if (!browser) return;
+		const res = await APIClient.fetch("/api/v1/downloads");
+		if (res.ok) {
+			tasks = (await res.json()) || [];
+			// If a task is expanded, refresh its tracks too
+			if (expandedTaskID) {
+				fetchTaskTracks(expandedTaskID);
+			}
+		}
+	};
+
+	const fetchTaskTracks = async (taskID: number) => {
+		const res = await APIClient.fetch(`/api/v1/downloads/${taskID}/tracks`);
+		if (res.ok) {
+			taskTracks = await res.json();
+		}
+	};
+
+	const toggleTask = async (taskID: number) => {
+		if (expandedTaskID === taskID) {
+			expandedTaskID = null;
+			taskTracks = [];
+		} else {
+			expandedTaskID = taskID;
+			await fetchTaskTracks(taskID);
+		}
+	};
+
+	const pauseTask = async (taskId: number) => {
+		await APIClient.post(`/api/v1/downloads/${taskId}/pause`, {});
+		fetchTasks();
+	};
+
+	const playTrack = async (track: any) => {
+		if (track.Status === "completed") {
+			const localUrl = `/api/v1/stream/${track.GroupTaskID}/${track.VideoID}`;
+			const title = track.Title || track.title || $t("Unknown Title");
+			const artist = track.Artist || track.artist || $t("Unknown Artist");
+			const item: any = {
+				videoId: track.VideoID,
+				title: title,
+				artist: artist,
+				artistInfo: {
+					artist: [
+						{
+							text: artist,
+							browseId: "",
+						},
+					],
+				},
+				thumbnails: track.ThumbnailURL
+					? [{ url: track.ThumbnailURL, width: 0, height: 0 }]
+					: [],
+				localUrl: localUrl,
+				playlistId: undefined,
+				autoMixList: undefined,
+				subtitle: [],
+				explicit: false,
+				aspectRatio: "16:9",
+			};
+
+			await list.initAutoMixSession({
+				videoId: track.VideoID,
+				keyId: 0,
+				mode: "local",
+				clickedItem: item,
+				playlistId: undefined,
+			});
+		} else {
+			await list.initAutoMixSession({
+				videoId: track.VideoID,
+				keyId: 0,
+				mode: "remote",
+			});
+		}
+	};
+
+	const playAllTracks = async (taskId: number) => {
+		// Fetch tracks for this task if not already loaded
+		if (expandedTaskID !== taskId) {
+			await fetchTaskTracks(taskId);
+		}
+
+		// Filter only completed tracks
+		const completedTracks = taskTracks.filter(
+			(track) => track.Status === "completed",
+		);
+
+		if (completedTracks.length === 0) {
+			return;
+		}
+
+		// Convert all tracks to Item objects
+		const items = completedTracks.map((track) => {
+			const localUrl = `/api/v1/stream/${track.GroupTaskID}/${track.VideoID}`;
+			const title = track.Title || track.title || $t("Unknown Title");
+			const artist = track.Artist || track.artist || $t("Unknown Artist");
+			return {
+				videoId: track.VideoID,
+				title: title,
+				artist: artist,
+				artistInfo: {
+					artist: [
+						{
+							text: artist,
+							browseId: "",
+						},
+					],
+				},
+				thumbnails: track.ThumbnailURL
+					? [{ url: track.ThumbnailURL, width: 0, height: 0 }]
+					: [],
+				localUrl: localUrl,
+				playlistId: undefined,
+				autoMixList: undefined,
+				subtitle: [],
+				explicit: false,
+				aspectRatio: "16:9",
+			};
+		});
+
+		// Play all tracks
+		await list.initAutoMixSession({
+			videoId: items[0].videoId,
+			keyId: 0,
+			mode: "local",
+			localItems: items,
+			playlistId: undefined,
+		});
+	};
+
+	const resumeTask = async (taskId: number) => {
+		await APIClient.post(`/api/v1/downloads/${taskId}/resume`, {});
+		fetchTasks();
+	};
+
+	const retryTask = async (taskId: number) => {
+		await APIClient.post(`/api/v1/downloads/${taskId}/retry`, {});
+		fetchTasks();
+	};
+
+	const deleteTask = async (taskId: number) => {
+		if (
+			!confirm(
+				$t("Are you sure you want to delete this download? This will delete all downloaded files."),
+			)
+		)
+			return;
+		await APIClient.del(`/api/v1/downloads/${taskId}`);
+		fetchTasks();
+	};
+
+	const deleteTrack = async (taskId: number, track: any) => {
+		if (!confirm($t('Are you sure you want to delete "{title}"?', { title: track.Title }))) return;
+		await APIClient.del(`/api/v1/downloads/${taskId}/tracks/${track.VideoID}`);
+		// Refresh tracks
+		await fetchTaskTracks(taskId);
+	};
+
+	onMount(() => {
+		fetchTasks();
+	});
+</script>
+
+<Header
+	title={$t("Downloads")}
+	url="/downloads"
+	desc={$t("View download status")}
+/>
+
+<main class="resp-content-width">
+	<div class="controls">
+		<button
+			on:click={fetchTasks}
+			class="icon-btn"
+			title={$t("Refresh")}
+		>
+			<Icon
+				name="refresh"
+				size="1.5em"
+			/>
+		</button>
+	</div>
+	{#if tasks.length === 0}
+		<p>{$t("No downloads found.")}</p>
+	{:else}
+		<div class="tasks">
+			{#each tasks as task}
+				<div class="task-container">
+					<!-- Parent Task -->
+					<div
+						class="task parent"
+						on:click={() => toggleTask(task.ID)}
+					>
+						<div class="task-header">
+							<div class="info">
+								<span class="title"
+									>{task.PlaylistName || $t("Unknown Playlist")}</span
+								>
+								<span class="meta">{$t("ID:")} {task.ReferenceID}</span>
+								<span class="meta date"
+									>{new Date(task.CreatedAt).toLocaleString($locale)}</span
+								>
+							</div>
+
+							<div class="stats">
+								<div class="stat-item">
+									<span class="label">{$t("Total")}</span>
+									<span class="value">{task.TotalTracks}</span>
+								</div>
+								<div class="stat-item">
+									<span class="label">{$t("Done")}</span>
+									<span class="value success">{task.Processed}</span>
+								</div>
+								<div class="stat-item">
+									<span class="label">{$t("Failed")}</span>
+									<span class="value error">{task.Failed}</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="task-footer">
+							<div
+								class="task-actions"
+								on:click|stopPropagation
+							>
+								{#if task.Status === "processing" || task.Status === "pending"}
+									<button
+										class="icon-btn"
+										on:click={() => pauseTask(task.ID)}
+										title={$t("Pause")}
+									>
+										<Icon
+											name="pause"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								{#if task.Status === "paused"}
+									<button
+										class="icon-btn"
+										on:click={() => resumeTask(task.ID)}
+										title={$t("Resume")}
+									>
+										<Icon
+											name="play"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								{#if task.Status === "completed" && task.Failed > 0}
+									<button
+										class="icon-btn"
+										on:click={() => retryTask(task.ID)}
+										title={$t("Retry")}
+									>
+										<Icon
+											name="refresh"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								<button
+									class="icon-btn delete"
+									on:click={() => deleteTask(task.ID)}
+									title={$t("Delete")}
+								>
+									<Icon
+										name="trash"
+										size="1.2em"
+									/>
+								</button>
+							</div>
+
+							{#if task.Processed > 0}
+								<button
+									class="icon-btn"
+									on:click={() => playAllTracks(task.ID)}
+									title={$t("Play All")}
+								>
+									<Icon
+										name="play"
+										size="1.2em"
+									/>
+								</button>
+							{/if}
+							<div
+								class="status"
+								class:completed={task.Status === "completed"}
+								class:failed={task.Status === "failed"}
+								class:processing={task.Status === "processing" ||
+									task.Status === "pending"}
+							>
+								{$t(task.Status)}
+							</div>
+						</div>
+					</div>
+
+					<!-- Child Tasks (Tracks) -->
+					{#if expandedTaskID === task.ID}
+						<div class="children">
+							{#if taskTracks.length === 0}
+								<p class="no-tracks">{$t("No tracks found or loading...")}</p>
+							{:else}
+								{#each taskTracks as track}
+									<div class="child-task">
+										{#if track.ThumbnailURL}
+											<img
+												src={track.ThumbnailURL}
+												alt={track.Title}
+												class="thumbnail"
+											/>
+										{/if}
+										<div class="info">
+											<span class="title">{track.Title}</span>
+											<span class="artist">{track.Artist}</span>
+										</div>
+										<div class="child-actions">
+											{#if track.Status === "completed"}
+												<button
+													class="icon-btn"
+													on:click={() => playTrack(track)}
+													title={$t("Play")}
+												>
+													<Icon
+														name="play-circle"
+														size="1em"
+													/>
+												</button>
+											{/if}
+											<button
+												class="icon-btn delete"
+												on:click={() => deleteTrack(task.ID, track)}
+												title={$t("Delete")}
+											>
+												<Icon
+													name="trash"
+													size="1em"
+												/>
+											</button>
+										</div>
+										<div
+											class="status small"
+											class:completed={track.Status === "completed"}
+											class:failed={track.Status === "failed"}
+											class:processing={track.Status === "in_progress" ||
+												track.Status === "not_started"}
+										>
+											{$t(track.Status)}
+										</div>
+									</div>
+								{/each}
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
+</main>
+
+<style lang="scss">
+	.tasks {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.controls {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 1rem;
+	}
+
+	.refresh-btn {
+		padding: 0.5rem 1rem;
+		background: #333;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		font-weight: bold;
+
+		&:hover {
+			background: #444;
+		}
+	}
+
+	.task-container {
+		display: flex;
+		flex-direction: column;
+		background: rgba(255, 255, 255, 0.05);
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.task {
+		padding: 1rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 1rem;
+		cursor: pointer;
+		transition: background 0.2s;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.1);
+		}
+
+		&.parent {
+			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		}
+
+		@media (max-width: 768px) {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.5rem;
+		}
+	}
+
+	.task-header {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		flex: 1;
+		width: 100%;
+		justify-content: space-between;
+	}
+
+	.task-footer {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+
+		@media (max-width: 768px) {
+			width: 100%;
+			justify-content: space-between;
+			margin-top: 0.5rem;
+		}
+	}
+
+	.task-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.icon-btn {
+		background: transparent;
+		border: none;
+		color: white;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.2s, color 0.2s;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.1);
+		}
+
+		&.delete {
+			color: #ff4d4d;
+			&:hover {
+				background: rgba(255, 77, 77, 0.1);
+			}
+		}
+	}
+
+	.child-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.children {
+		background: rgba(0, 0, 0, 0.2);
+		padding: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-height: 400px;
+		overflow-y: auto;
+	}
+
+	.child-task {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.5rem;
+		background: rgba(255, 255, 255, 0.03);
+		border-radius: 4px;
+	}
+
+	.thumbnail {
+		width: 40px;
+		height: 40px;
+		border-radius: 4px;
+		object-fit: cover;
+	}
+
+	.info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		flex: 1;
+	}
+
+	.title {
+		font-weight: bold;
+		color: white;
+	}
+
+	.artist {
+		color: #aaa;
+		font-size: 0.9rem;
+	}
+
+	.meta {
+		color: #666;
+		font-size: 0.8rem;
+
+		&.date {
+			font-size: 0.7rem;
+		}
+	}
+
+	.stats {
+		display: flex;
+		gap: 1rem;
+		margin-right: 1rem;
+	}
+
+	.stat-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+
+		.label {
+			font-size: 0.7rem;
+			color: #888;
+			text-transform: uppercase;
+		}
+
+		.value {
+			font-weight: bold;
+			font-size: 1.1rem;
+
+			&.success {
+				color: #00cd6a;
+			}
+			&.error {
+				color: #ff4d4d;
+			}
+		}
+	}
+
+	.status {
+		padding: 0.25rem 0.75rem;
+		border-radius: 4px;
+		background: #333;
+		text-transform: capitalize;
+		white-space: nowrap;
+
+		&.completed {
+			background: #00cd6a;
+			color: black;
+		}
+
+		&.failed {
+			background: #ff4d4d;
+			color: white;
+		}
+
+		&.processing {
+			background: #007bff;
+			color: white;
+		}
+
+		&.small {
+			font-size: 0.8rem;
+			padding: 0.15rem 0.5rem;
+		}
+	}
+
+	.no-tracks {
+		color: #888;
+		font-style: italic;
+		text-align: center;
+		padding: 1rem;
+	}
+</style>

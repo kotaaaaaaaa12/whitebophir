@@ -1,0 +1,30 @@
+<script lang="ts">
+	import { sectionHeading } from "$lib/i18n";
+	import observer from "$lib/components/Carousel/observer";
+	export let items = [];
+	export let heading = "";
+</script>
+
+<div class="grid-container">
+	<div class="header resp-content-width">
+		<span class="h2">{$sectionHeading(heading)}</span>
+	</div>
+	<div
+		class="grid resp-content-width"
+		use:observer={{ items }}
+	>
+		{#each items as item, i (item)}
+			<slot
+				name="item"
+				{item}
+				index={i}
+			/>
+		{/each}
+	</div>
+</div>
+
+<style
+	src="./index.scss"
+	lang="scss"
+>
+</style>
