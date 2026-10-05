@@ -30,16 +30,17 @@ test("partial erasing uses SIZE, stays transparent, syncs and survives reload", 
   );
   await page.evaluate(() => window.WBOApp.preferences.setSize(60));
   const point = await page.evaluate(() => {
-    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
-    const matrix = svg.getScreenCTM();
-    if (!matrix) throw new Error("Missing SVG screen transform");
-    const p = new DOMPoint(3000, 2000).matrixTransform(matrix);
-    return { x: p.x, y: p.y };
+    const rect = window.WBOApp.viewportState.controller.boardRectToViewportRect(
+      {
+        x: 3000,
+        y: 2000,
+        width: 0,
+        height: 0,
+      },
+    );
+    return { x: rect.left, y: rect.top };
   });
-  if (
-    context.browser()?.browserType().name() === "chromium" &&
-    (await page.evaluate(() => navigator.maxTouchPoints > 0))
-  )
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0))
     await page.touchscreen.tap(point.x, point.y);
   else await page.mouse.click(point.x, point.y);
   const path = page.locator("#drawingArea #stroke");
@@ -180,13 +181,14 @@ test("object erasing looks through masked holes and respects moved copies", asyn
   async function click(x: number, y: number) {
     const point = await page.evaluate(
       ({ x, y }) => {
-        const svg = document.getElementById(
-          "canvas",
-        ) as unknown as SVGSVGElement;
-        const matrix = svg.getScreenCTM();
-        if (!matrix) throw new Error("Missing screen transform");
-        const point = new DOMPoint(x, y).matrixTransform(matrix);
-        return { x: point.x, y: point.y };
+        const rect =
+          window.WBOApp.viewportState.controller.boardRectToViewportRect({
+            x,
+            y,
+            width: 0,
+            height: 0,
+          });
+        return { x: rect.left, y: rect.top };
       },
       { x, y },
     );
@@ -247,6 +249,10 @@ test("object erasing looks through masked holes and respects moved copies", asyn
   await boardPage.waitForBoardWritable();
   await boardPage.selectTool("eraser");
   // The copy's hole follows a shear/scale/translation, including after reload.
+  await page.evaluate(() => {
+    window.WBOApp.viewportState.controller.setScale(0.13);
+    window.WBOApp.viewportState.controller.panTo(60, 120);
+  });
   await click(2900, 3000);
   await expect(page.locator("#drawingArea #copy")).toHaveCount(1);
   await click(2300, 2850);
@@ -289,6 +295,61 @@ test("selecting the pen again keeps normal ink and SIZE", async ({
   );
 });
 
+test("object erasing keeps native hits when SVG matrices omit CSS zoom", async ({
+  boardPage,
+  page,
+  server,
+}) => {
+  const name = "object-eraser-native-hit";
+  await server.writeBoard(server.dataPath, name, {
+    stroke: {
+      id: "stroke",
+      tool: "pencil",
+      color: "#ff0000",
+      size: 10,
+      _children: [
+        { x: 200, y: 200 },
+        { x: 700, y: 200 },
+      ],
+    },
+  });
+  await boardPage.gotoBoard(name);
+  await boardPage.selectTool("eraser");
+  await boardPage.selectTool("eraser");
+  await page.mouse.click(300, 200);
+  await expect(page.locator("#drawingArea #stroke")).toHaveAttribute(
+    "data-wbo-erasures",
+    /"key"/,
+  );
+  await boardPage.waitForBufferedWritesDrained();
+  await boardPage.selectTool("eraser");
+  // Native pointer hits already establish painted geometry. A second SVG
+  // geometry query must never turn a visible stroke into an untouchable one.
+  await page.evaluate(() => {
+    SVGGraphicsElement.prototype.getScreenCTM = () => new DOMMatrix();
+    SVGGeometryElement.prototype.isPointInStroke = () => false;
+    SVGGeometryElement.prototype.isPointInFill = () => false;
+  });
+  const target = await page.evaluate(
+    () => document.elementFromPoint(250, 200)?.id,
+  );
+  expect(target).toBe("stroke");
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+    await page.touchscreen.tap(300, 200);
+  else await page.mouse.click(300, 200);
+  await boardPage.waitForBufferedWritesDrained();
+  await expect(page.locator("#drawingArea #stroke")).toHaveCount(1);
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+    await page.touchscreen.tap(250, 200);
+  else await page.mouse.click(250, 200);
+  await expect(page.locator("#drawingArea #stroke")).toHaveCount(0);
+  await server.waitForStoredBoard(
+    server.dataPath,
+    name,
+    (board) => !board.stroke,
+  );
+});
+
 test("a partial eraser drag reaches overlapping objects and copies keep their own masks", async ({
   boardPage,
   page,
@@ -322,12 +383,15 @@ test("a partial eraser drag reaches overlapping objects and copies keep their ow
   await boardPage.selectTool("eraser");
   await page.evaluate(() => window.WBOApp.preferences.setSize(100));
   const points = await page.evaluate(() => {
-    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
-    const m = svg.getScreenCTM();
-    if (!m) throw new Error("Missing screen transform");
-    return [new DOMPoint(3000, 1700), new DOMPoint(3000, 2300)].map((p) => {
-      const q = p.matrixTransform(m);
-      return { x: q.x, y: q.y };
+    return [1700, 2300].map((y) => {
+      const rect =
+        window.WBOApp.viewportState.controller.boardRectToViewportRect({
+          x: 3000,
+          y,
+          width: 0,
+          height: 0,
+        });
+      return { x: rect.left, y: rect.top };
     });
   });
   const [start, end] = points;

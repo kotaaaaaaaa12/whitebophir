@@ -96,34 +96,17 @@ function resolveTarget(evt) {
   return target;
 }
 
-/** @param {EraserState} state @param {SVGGraphicsElement} target @param {DOMPoint} point */
-function visibleAtPoint(state, target, point) {
-  const screen = state.board.svg.getScreenCTM();
-  const matrix = target.getScreenCTM();
-  if (
-    !screen ||
-    !matrix ||
-    Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-12
-  )
-    return false;
-  const local = point.matrixTransform(screen).matrixTransform(matrix.inverse());
-  if (
-    isErasedPoint(
-      readErasures(target.getAttribute("data-wbo-erasures")),
-      local.x,
-      local.y,
-    )
-  )
-    return false;
-  if (target instanceof SVGGeometryElement) {
-    const style = getComputedStyle(target);
-    return (
-      (style.stroke !== "none" && target.isPointInStroke(local)) ||
-      (style.fill !== "none" && target.isPointInFill(local))
-    );
-  }
-  // Text is already narrowed to the pointer by getIntersectionList.
-  return true;
+/** @param {SVGGraphicsElement} target @param {{x: number, y: number}} point */
+function erasedAtPoint(target, point) {
+  const parts = readErasures(target.getAttribute("data-wbo-erasures"));
+  if (!parts.length) return false;
+  const matrix = target.transform.baseVal.consolidate()?.matrix;
+  if (matrix && Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-12)
+    return true;
+  const local = matrix
+    ? new DOMPoint(point.x, point.y).matrixTransform(matrix.inverse())
+    : point;
+  return isErasedPoint(parts, local.x, local.y);
 }
 
 /** @param {EraserState} state @param {number} x @param {number} y @param {EraserPointerEvent} evt */
@@ -136,32 +119,36 @@ function resolveVisibleTarget(state, x, y, evt) {
   )
     return target;
   const pointer = evt.touches?.[0] || evt;
-  const screen = state.board.svg.getScreenCTM();
-  const point =
-    screen && pointer.clientX !== undefined && pointer.clientY !== undefined
-      ? new DOMPoint(pointer.clientX, pointer.clientY).matrixTransform(
-          screen.inverse(),
-        )
-      : new DOMPoint(x, y);
-  if (visibleAtPoint(state, target, point)) return target;
+  const hasClientPoint =
+    pointer.clientX !== undefined && pointer.clientY !== undefined;
+  const client = hasClientPoint
+    ? {
+        left: /** @type {number} */ (pointer.clientX),
+        top: /** @type {number} */ (pointer.clientY),
+      }
+    : state.viewport.boardRectToViewportRect({ x, y, width: 0, height: 0 });
+  // WebKit can omit the board's CSS zoom from getScreenCTM. The viewport
+  // controller owns the actual zoom and scroll-aware origin on every browser.
+  const point = hasClientPoint
+    ? state.viewport.clientRectToBoardRect({
+        left: client.left,
+        top: client.top,
+        width: 0,
+        height: 0,
+      })
+    : { x, y };
+  // Native pointer hits already establish geometry. Only subtract the holes;
+  // a second SVG stroke/fill query can disagree with the browser's hit result.
+  if (!erasedAtPoint(target, point)) return target;
 
   // SVG masks affect painting, but not native hit testing. Look through holes
   // in reverse paint order and delete only an object visibly under the pointer.
-  const area = state.board.svg.createSVGRect();
-  area.x = point.x - 0.005;
-  area.y = point.y - 0.005;
-  area.width = area.height = 0.01;
-  const candidates = state.board.svg.getIntersectionList(
-    area,
-    state.board.drawingArea,
-  );
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const candidate = candidates[i];
+  for (const candidate of document.elementsFromPoint(client.left, client.top)) {
     if (
       candidate instanceof SVGGraphicsElement &&
       candidate.parentNode === state.board.drawingArea &&
       candidate.id &&
-      visibleAtPoint(state, candidate, point)
+      !erasedAtPoint(candidate, point)
     )
       return candidate;
   }
@@ -353,6 +340,7 @@ export function draw(state, data) {
 export function boot(ctx) {
   const state = {
     board: ctx.runtime.board,
+    viewport: ctx.runtime.viewport,
     writes: ctx.runtime.writes,
     preferences: ctx.runtime.preferences,
     ids: ctx.runtime.ids,
