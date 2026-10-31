@@ -1,3 +1,7 @@
+import {
+  PAINT_KINDS,
+  polygonBounds,
+} from "../../client-data/tools/paint/geometry.js";
 import { normalizeErasure } from "../../client-data/tools/eraser/partial_erase.js";
 import MessageCommon from "../../client-data/js/message_common.js";
 import {
@@ -37,7 +41,7 @@ import { Cursor, TOOLS } from "../../client-data/tools/index.js";
 /** @typedef {{[key: string]: FieldSpec}} FieldSchema */
 /** @typedef {{[tool: number]: {[type: number]: FieldSchema}}} LiveToolSchemas */
 /** @typedef {import("../../client-data/tools/shape_contract.js").ToolContract} ToolContract */
-/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId" | "erasure"} SchemaFieldType */
+/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId" | "erasure" | "polygon" | "paintKind"} SchemaFieldType */
 
 const MAX_TOOL_CODE = TOOLS.length;
 const SHAPE_CONTRACTS = TOOLS.filter((tool) => tool.shapeTool === true);
@@ -288,6 +292,18 @@ function parseSchemaFieldSpec(spec) {
 function buildSchemaField(type, optionalField) {
   const make = optionalField ? optional : required;
   switch (type) {
+    case "polygon":
+      return make((value, _raw, _normalized, maxBoardSize) =>
+        polygonBounds(value, maxBoardSize)
+          ? accepted(value)
+          : rejected("invalid polygon"),
+      );
+    case "paintKind":
+      return make((value) =>
+        typeof value === "string" && PAINT_KINDS.includes(value)
+          ? accepted(value)
+          : rejected("invalid paint kind"),
+      );
     case "erasure":
       return make((value, _raw, _normalized, maxBoardSize) => {
         const erasure = normalizeErasure(value, maxBoardSize);
@@ -499,6 +515,16 @@ function normalizeIncomingMessage(config, raw, capabilities) {
 
   const normalized = normalizeObject(raw, schema, maxBoardSize);
   if (!normalized.ok) return normalized;
+  if (toolCode.value === 13) {
+    const bounds = polygonBounds(normalized.value.points, maxBoardSize);
+    if (
+      !bounds ||
+      Object.entries(bounds).some(
+        ([key, value]) => normalized.value[key] !== value,
+      )
+    )
+      return rejected("polygon bounds do not match");
+  }
   if (
     getMutationType(normalized.value) !== MutationType.UPDATE &&
     MessageCommon.isGeometryInvalid(normalized.value, maxBoardSize)

@@ -243,6 +243,9 @@ export class BoardShellModule {
     Tools.preferences.setColor(Tools.preferences.currentColor);
     Tools.preferences.setSize(Tools.preferences.currentSize);
     Tools.preferences.setOpacity(Tools.preferences.currentOpacity);
+    void import("./paint_controls.js").then(({ installPaintControls }) =>
+      installPaintControls(Tools),
+    );
   }
 
   bindStyleKeyboardShortcuts() {

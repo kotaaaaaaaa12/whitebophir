@@ -124,7 +124,12 @@ export type ClearMessage = WithMessageMetadata<ClearTool.ClearMessage>;
 
 export type CursorMessage = WithMessageMetadata<CursorTool.CursorMessage>;
 
+export type PaintCreateMessage = WithMessageMetadata<
+  import("../client-data/tools/paint/index.js").PaintCreateMessage
+>;
+
 export type BoardMessage =
+  | PaintCreateMessage
   | PencilCreateMessage
   | PencilAppendMessage
   | StraightLineCreateMessage

@@ -1801,3 +1801,115 @@ text {
 .board-chat-delete svg {
   pointer-events: none;
 }
+
+/* Additional painting controls share the existing compact toolbar surfaces. */
+.brush-palette {
+  position: fixed;
+  z-index: 85;
+  box-sizing: border-box;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  padding: 10px;
+  background: var(--board-control-bg);
+  border: 1px solid var(--board-control-border);
+  border-radius: 4px;
+  box-shadow: var(--board-control-shadow);
+  color: var(--board-control-fg);
+  font: 13px sans-serif;
+}
+.brush-palette[hidden],
+.palette-editor[hidden] {
+  display: none;
+}
+.brush-palette-heading {
+  margin-bottom: 8px;
+}
+.brush-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.brush-choices button {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 6px;
+}
+.brush-choices button[aria-pressed="true"] {
+  border-color: var(--board-accent-strong);
+  background: #ccdfdf;
+}
+.brush-choices button,
+.palette-actions button,
+.palette-editor button {
+  border: 1px solid var(--board-control-border-strong);
+  border-radius: 2px;
+  background: var(--board-control-bg);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.palette-actions {
+  display: flex;
+  gap: 6px;
+}
+.palette-actions button {
+  min-height: 32px;
+  padding: 4px 8px;
+}
+.palette-actions button:first-child {
+  min-width: 32px;
+}
+.palette-editor {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.palette-editor-rows {
+  display: grid;
+  gap: 4px;
+}
+.palette-hex-row,
+.palette-editor-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.palette-hex-row input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font: 13px monospace;
+}
+.palette-editor-row span {
+  flex: 1;
+  min-width: 0;
+  padding-inline-start: 4px;
+  font: 11px monospace;
+}
+.palette-editor-row button,
+.palette-hex-row button {
+  flex: 0 0 28px;
+  min-height: 30px;
+}
+.palette-editor-row button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.paint-control-status {
+  margin: 0;
+  font-size: 12px;
+  color: #a12626;
+}
+.paint-control-status:empty {
+  display: none;
+}
+
+#toolID-bucket[aria-busy="true"] .tool-icon {
+  opacity: 0.45;
+}

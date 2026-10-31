@@ -1,3 +1,5 @@
+import * as PaintModule from "./paint/index.js";
+import * as BucketModule from "./bucket/index.js";
 import * as ClearModule from "./clear/index.js";
 import * as CursorModule from "./cursor/index.js";
 import * as DownloadModule from "./download/index.js";
@@ -107,6 +109,8 @@ export const TOOL_MODULES_BY_ID = /** @satisfies {ToolModulesById} */ ({
   zoom: ZoomModule,
   clear: ClearModule,
   cursor: CursorModule,
+  paint: PaintModule,
+  bucket: BucketModule,
 });
 
 export const TOOLS = TOOL_IDS.map((toolId) =>

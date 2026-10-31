@@ -65,6 +65,8 @@ export const TOOL_CODE_BY_ID = Object.freeze(
     zoom: 10,
     clear: 11,
     cursor: 12,
+    paint: 13,
+    bucket: 14,
   }),
 );
 /** @typedef {keyof typeof TOOL_CODE_BY_ID} ToolId */
@@ -314,6 +316,38 @@ export const TOOL_MANIFEST = Object.freeze([
     alwaysOn: true,
     mouseCursor: "crosshair",
     showMarker: true,
+  }),
+  defineTool({
+    toolId: "paint",
+    id: TOOL_CODE_BY_ID.paint,
+    toolbar: false,
+    drawsOnBoard: true,
+    requiredCapability: BOARD_CAPABILITY.EDIT,
+    payloadKind: "inline",
+    storedTagName: "polygon",
+    liveMessageFields: {
+      [MutationType.CREATE]: {
+        id: "id",
+        color: "color",
+        size: "size",
+        opacity: "opacity?",
+        points: "polygon",
+        kind: "paintKind",
+        x: "coord",
+        y: "coord",
+        x2: "coord",
+        y2: "coord",
+      },
+    },
+  }),
+  defineTool({
+    toolId: "bucket",
+    id: TOOL_CODE_BY_ID.bucket,
+    drawsOnBoard: true,
+    requiredCapability: BOARD_CAPABILITY.EDIT,
+    shortcut: "b",
+    mouseCursor: "crosshair",
+    helpText: "bucket_help",
   }),
 ]);
 

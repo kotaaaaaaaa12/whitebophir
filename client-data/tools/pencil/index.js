@@ -1,3 +1,4 @@
+import { getBrushSelection } from "../../js/brush_selection.js";
 /**
  *                        WHITEBOPHIR
  *********************************************************
@@ -549,6 +550,10 @@ function createInitialState(ctx) {
       ? Number(LIMITS.DEFAULT_MAX_CHILDREN)
       : Number.POSITIVE_INFINITY;
   return {
+    brushRuntime: runtime,
+    brushStroke: /** @type {import("../paint/brush.js").Stroke | null} */ (
+      null
+    ),
     board: runtime.board,
     viewport: runtime.viewport,
     preferences: runtime.preferences,
@@ -750,6 +755,10 @@ function acquireInteractionLease(state) {
 
 /** @param {PencilState} state */
 function clearActiveStrokeState(state, keepPathData = false) {
+  if (state.brushStroke) {
+    getBrushSelection().engine?.cancel(state.brushStroke);
+    state.brushStroke = null;
+  }
   const lineId = state.curLineId;
   state.liveOverlay.clear();
   releaseInteractionLease(state);
@@ -972,6 +981,15 @@ export function draw(state, data, isLocal = false) {
  */
 export function press(state, x, y, evt) {
   evt.preventDefault();
+  const brush = getBrushSelection();
+  if (brush.kind !== "pen" && brush.engine) {
+    state.brushStroke = brush.engine.createStroke(
+      state.brushRuntime,
+      brush.kind,
+    );
+    brush.engine.move(state.brushStroke, x, y, evt);
+    return;
+  }
   const effect = createPencilPressEffect(state);
   state.curLineId = effect.lineId;
   state.activeLineData = null;
@@ -993,6 +1011,10 @@ export function press(state, x, y, evt) {
  * @param {MouseEvent | TouchEvent | undefined} evt
  */
 export function move(state, x, y, evt) {
+  if (state.brushStroke) {
+    getBrushSelection().engine?.move(state.brushStroke, x, y, evt);
+    return;
+  }
   const effect = createPencilMoveEffect(state, x, y, performance.now());
   if (effect.stopBefore) {
     finishActiveStroke(state);
@@ -1015,6 +1037,11 @@ export function move(state, x, y, evt) {
  * @param {number} y
  */
 export function release(state, x, y) {
+  if (state.brushStroke) {
+    getBrushSelection().engine?.finish(state.brushStroke, x, y);
+    state.brushStroke = null;
+    return;
+  }
   move(state, x, y, undefined);
   finishActiveStroke(state);
 }
@@ -1112,6 +1139,14 @@ export function onstart(state) {
 
 /** @param {PencilState} state */
 export function onquit(state) {
+  if (state.brushStroke) {
+    const last =
+      state.brushStroke.samples[state.brushStroke.samples.length - 1];
+    if (last)
+      getBrushSelection().engine?.finish(state.brushStroke, last.x, last.y);
+    else getBrushSelection().engine?.cancel(state.brushStroke);
+    state.brushStroke = null;
+  }
   finishActiveStroke(state);
   state.liveOverlay.deactivate();
 }

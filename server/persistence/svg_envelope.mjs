@@ -170,7 +170,14 @@ function parseStoredSvgEnvelope(svg) {
   };
 }
 
-const STORED_ITEM_TAG_NAMES = ["rect", "ellipse", "line", "text", "path"];
+const STORED_ITEM_TAG_NAMES = [
+  "rect",
+  "ellipse",
+  "line",
+  "text",
+  "path",
+  "polygon",
+];
 
 /**
  * @param {string} drawingAreaContent
@@ -180,7 +187,7 @@ function parseStoredSvgItems(drawingAreaContent) {
   /** @type {Array<{raw: string, tagName: string, content: string, attributes: {[name: string]: string}}>} */
   const items = [];
   const itemPattern =
-    /<(rect|ellipse|line|text|path)\b([^>]*)>([\s\S]*?)<\/\1>/g;
+    /<(rect|ellipse|line|text|path|polygon)\b([^>]*)>([\s\S]*?)<\/\1>/g;
   let match = itemPattern.exec(drawingAreaContent);
   while (match) {
     const raw = match[0];

@@ -93,7 +93,12 @@ function isSelectableElement(target) {
     typeof target === "object" &&
     "id" in target &&
     "transform" in target &&
-    "transformedBBox" in target
+    "transformedBBox" in target &&
+    !(
+      "getAttribute" in target &&
+      typeof target.getAttribute === "function" &&
+      target.getAttribute("data-wbo-paint") === "bucket"
+    )
   );
 }
 
