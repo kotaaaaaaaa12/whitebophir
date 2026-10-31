@@ -1504,6 +1504,22 @@ input {
   flex-shrink: 0;
 }
 
+.style-panel > .colorPresets {
+  max-height: min(180px, 35dvh);
+  min-height: 0;
+  flex-shrink: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px;
+}
+
+.palette-editor-rows {
+  max-height: min(120px, 22dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .colorPresetButton {
   box-sizing: border-box;
   min-width: 0;

@@ -366,3 +366,130 @@ test("bucket handles a large enclosure at the default zoom and keeps fills separ
   await expect(page.locator("#first")).toHaveCount(1);
   await expect(page.locator("#second")).toHaveCount(1);
 });
+
+test("color panel closes on tool switches and outside taps while its controls stay interactive", async ({
+  boardPage,
+  page,
+}) => {
+  await boardPage.gotoBoard("palette-dismiss");
+  await scaleOne(page);
+  const summary = page.locator("#styleSummary");
+  const panel = page.locator("#stylePanel");
+  const activate = async (selector: string) => {
+    const element = page.locator(selector);
+    if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+      await element.tap();
+    else await element.click();
+  };
+  await activate("#styleSummary");
+  await expect(panel).toBeVisible();
+  await page.evaluate(() => window.WBOApp.preferences.setColor("#345678"));
+  await activate("#paletteAdd");
+  await expect(panel).toBeVisible();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await activate("#toolID-pencil");
+  await expect(panel).toBeHidden();
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#brushPalette")).toBeVisible();
+  await activate("#styleSummary");
+  await expect(panel).toBeVisible();
+  await expect(page.locator("#brushPalette")).toBeHidden();
+  // Reopening the current pen's chooser must dismiss the color popover too.
+  await page.keyboard.press("p");
+  await expect(panel).toBeHidden();
+  await expect(page.locator("#brushPalette")).toBeVisible();
+  await activate("#styleSummary");
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("e");
+  await boardPage.expectCurrentTool("eraser");
+  await expect(panel).toBeHidden();
+  await activate("#styleSummary");
+  await page.evaluate(() => window.WBOApp.toolRegistry.activateTool("hand"));
+  await expect(panel).toBeHidden();
+  await activate("#styleSummary");
+  await expect(panel).toBeVisible();
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0))
+    await page.touchscreen.tap(370, 200);
+  else await page.mouse.click(370, 200);
+  await expect(panel).toBeHidden();
+  await activate("#styleSummary");
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("added colors scroll independently without pushing SIZE and Opacity down", async ({
+  boardPage,
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "wbo.customPalette",
+      JSON.stringify(
+        Array.from(
+          { length: 24 },
+          (_, i) => `#${(0x100000 + i * 137).toString(16)}`,
+        ),
+      ),
+    ),
+  );
+  await boardPage.gotoBoard("palette-scroll");
+  await scaleOne(page);
+  await page.locator("#styleSummary").click();
+  const palette = page.locator("#colorPresetSel");
+  const measure = () =>
+    page.evaluate(() => {
+      const panel = document.getElementById("stylePanel") as HTMLElement;
+      const colors = document.getElementById("colorPresetSel") as HTMLElement;
+      const size = document.getElementById("chooseSize") as HTMLElement;
+      const opacity = document.getElementById("chooseOpacity") as HTMLElement;
+      return {
+        height: panel.getBoundingClientRect().height,
+        top: panel.getBoundingClientRect().top,
+        panelOverflow: panel.scrollHeight - panel.clientHeight,
+        paletteHeight: colors.clientHeight,
+        paletteOverflow: colors.scrollHeight - colors.clientHeight,
+        sizeTop: size.getBoundingClientRect().top,
+        opacityTop: opacity.getBoundingClientRect().top,
+      };
+    });
+  const before = await measure();
+  for (let i = 0; i < 8; i++) {
+    await page.evaluate(
+      (i) =>
+        window.WBOApp.preferences.setColor(`#${(0xabcdef + i).toString(16)}`),
+      i,
+    );
+    await page.locator("#paletteAdd").click();
+  }
+  await expect(page.locator("[data-custom-color]")).toHaveCount(32);
+  const after = await measure();
+  expect(after.paletteOverflow).toBeGreaterThan(0);
+  expect(after.paletteHeight).toBeLessThanOrEqual(184);
+  expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.sizeTop - before.sizeTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.opacityTop - before.opacityTop)).toBeLessThanOrEqual(1);
+  expect(after.panelOverflow).toBeLessThanOrEqual(1);
+  await palette.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expect(await palette.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  const scrolled = await measure();
+  expect(Math.abs(scrolled.sizeTop - after.sizeTop)).toBeLessThanOrEqual(1);
+  await expect(page.locator("#chooseOpacity")).toBeInViewport();
+  await page.locator("#paletteEdit").click();
+  const rows = page.locator(".palette-editor-rows");
+  expect(await rows.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+    true,
+  );
+  await expect
+    .poll(async () => {
+      const m = await measure();
+      return m.top + m.height;
+    })
+    .toBeLessThanOrEqual(836);
+  await page.screenshot({
+    path: testInfo.outputPath("scrolling-color-palette.png"),
+  });
+});

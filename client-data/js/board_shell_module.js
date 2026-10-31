@@ -1,4 +1,5 @@
 import { attachBoardDomToRuntime } from "./board_dom_bootstrap.js";
+import { TOOLBAR_TOOLS } from "../tools/manifest.js";
 import { updateDocumentTitle } from "./board_message_module.js";
 import {
   DEFAULT_BOARD_STATE,
@@ -181,6 +182,52 @@ export class BoardShellModule {
       closeDelayMs: STYLE_PANEL_CLOSE_MS,
       closeOnEscape: false,
     });
+
+    const closeStylePanel = () => {
+      stylePanelController.cancelClose();
+      styleTool.open = false;
+      styleToolMenu.classList.remove("style-tool-hover-open");
+      syncStylePanelVisibility();
+    };
+    // Outside input closes both the pinned disclosure and hover preview.
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (
+          event.target instanceof Node &&
+          !styleToolMenu.contains(event.target) &&
+          !stylePanel.contains(event.target)
+        )
+          closeStylePanel();
+      },
+      true,
+    );
+    const toolShortcuts = new Set(TOOLBAR_TOOLS.map((tool) => tool.shortcut));
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (
+          event.key === "Escape" ||
+          (!isTextEntryTarget(event.target) && toolShortcuts.has(event.key))
+        )
+          closeStylePanel();
+      },
+      true,
+    );
+    let activeTool = document.documentElement.dataset.activeTool;
+    new MutationObserver(() => {
+      const nextTool = document.documentElement.dataset.activeTool;
+      if (nextTool !== activeTool) {
+        activeTool = nextTool;
+        closeStylePanel();
+      }
+    }).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-active-tool"],
+    });
+    new ResizeObserver(() => stylePanelController.syncPosition()).observe(
+      stylePanel,
+    );
 
     styleTool.addEventListener("toggle", () => {
       stylePanelController.cancelClose();
