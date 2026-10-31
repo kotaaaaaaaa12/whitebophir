@@ -55,7 +55,7 @@ export function polygonBounds(points, maxBoardSize = 655360) {
   };
 }
 
-/** Stitch closed contours with doubled bridges; even-odd fill preserves holes.
+/** Stitch closed contours with doubled bridges without changing their winding.
  * @param {XY[][]} contours
  */
 export function polygonFromContours(contours) {
@@ -93,72 +93,171 @@ function inside(x, y, outline) {
   return hit;
 }
 
-/** @param {{x:number,y:number,width:number}[]} samples @param {string} kind */
+// Keep segment contours within the existing polygon and socket limits.
+export const MAX_STROKE_SAMPLES = 600;
+
+/** @param {unknown} rule @returns {"nonzero" | "evenodd"} */
+export function paintFillRule(rule) {
+  return rule === "nonzero" ? "nonzero" : "evenodd";
+}
+
+/** Positive-winding convex hull of endpoint disks. Direction never flips
+ * the segment's winding, including exact retraces and pressure changes.
+ * @param {XY[]} points @returns {XY[]}
+ */
+function convexHull(points) {
+  const sorted = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  /** @param {XY} a @param {XY} b @param {XY} c */
+  const cross = (a, b, c) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  /** @type {XY[]} */ const lower = [];
+  /** @type {XY[]} */ const upper = [];
+  for (const point of sorted) {
+    while (
+      lower.length >= 2 &&
+      cross(
+        /** @type {XY} */ (lower[lower.length - 2]),
+        /** @type {XY} */ (lower[lower.length - 1]),
+        point,
+      ) <= 0
+    )
+      lower.pop();
+    lower.push(point);
+  }
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const point = /** @type {XY} */ (sorted[i]);
+    while (
+      upper.length >= 2 &&
+      cross(
+        /** @type {XY} */ (upper[upper.length - 2]),
+        /** @type {XY} */ (upper[upper.length - 1]),
+        point,
+      ) <= 0
+    )
+      upper.pop();
+    upper.push(point);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+/** @param {XY[]} contour */
+function contourBounds(contour) {
+  return {
+    minX: Math.min(...contour.map((p) => p[0])),
+    minY: Math.min(...contour.map((p) => p[1])),
+    maxX: Math.max(...contour.map((p) => p[0])),
+    maxY: Math.max(...contour.map((p) => p[1])),
+  };
+}
+
+/** Union consistently wound segment silhouettes with one nonzero fill.
+ * Opposite winding is reserved for deterministic graphite grain only.
+ * @param {Sample[]} samples @param {string} kind @returns {string}
+ */
 export function strokePolygon(samples, kind) {
   const start = samples[0];
   if (!start) return "";
-  /** @type {XY[]} */ const left = [];
-  /** @type {XY[]} */ const right = [];
-  for (let i = 0; i < samples.length; i++) {
-    const p = /** @type {Sample} */ (samples[i]),
-      prev = samples[Math.max(0, i - 1)] || start,
-      next = samples[Math.min(samples.length - 1, i + 1)] || start;
-    const angle = Math.atan2(next.y - prev.y, next.x - prev.x);
+  const xDigits = String(
+    Math.floor(Math.max(...samples.map((p) => Math.max(0, p.x + p.width)))),
+  ).length;
+  const yDigits = String(
+    Math.floor(Math.max(...samples.map((p) => Math.max(0, p.y + p.width)))),
+  ).length;
+  // Reserve space for two decimal places, punctuation and contour bridges.
+  const vertexBudget = Math.min(
+    MAX_POLYGON_POINTS,
+    Math.floor(MAX_POLYGON_LENGTH / (xDigits + yDigits + 8)) - 1,
+  );
+  const disks = samples.map((p, i) => {
     const grain = kind === "graphite" ? 0.82 + ((i * 37) % 19) / 50 : 1;
     const radius = (p.width * grain) / 2;
-    left.push([p.x - Math.sin(angle) * radius, p.y + Math.cos(angle) * radius]);
-    right.push([
-      p.x + Math.sin(angle) * radius,
-      p.y - Math.cos(angle) * radius,
-    ]);
-  }
-  const end = samples[samples.length - 1] || start;
-  const second = samples[1] || start,
-    beforeEnd = samples[samples.length - 2] || start;
-  const startAngle =
-    samples.length > 1 ? Math.atan2(second.y - start.y, second.x - start.x) : 0;
-  const endAngle =
-    samples.length > 1
-      ? Math.atan2(end.y - beforeEnd.y, end.x - beforeEnd.x)
-      : 0;
-  const cap = (/** @type {typeof start} */ p, /** @type {number} */ angle) =>
-    Array.from(
-      { length: 9 },
-      (_, i) =>
+    return Array.from(
+      { length: 12 },
+      (_, j) =>
         /** @type {XY} */ ([
-          p.x + (Math.cos(angle - (Math.PI * i) / 8) * p.width) / 2,
-          p.y + (Math.sin(angle - (Math.PI * i) / 8) * p.width) / 2,
+          p.x + Math.cos((j * Math.PI) / 6) * radius,
+          p.y + Math.sin((j * Math.PI) / 6) * radius,
         ]),
     );
-  const outline = [
-    ...left,
-    ...cap(end, endAngle + Math.PI / 2),
-    ...right.reverse(),
-    ...cap(start, startAngle - Math.PI / 2),
-  ];
-  const contours = [outline];
+  });
+  /** @type {XY[][]} */ const contours = [];
+  if (disks.length === 1) contours.push(/** @type {XY[]} */ (disks[0]));
+  else
+    for (let i = 1; i < disks.length; i++) {
+      contours.push(convexHull([...(disks[i - 1] || []), ...(disks[i] || [])]));
+    }
+  let vertices = 1 + contours.reduce((n, c) => n + c.length + 2, 0);
+  if (vertices > vertexBudget) {
+    return strokePolygon(
+      samples.filter((_, i) => i % 2 === 0 || i === samples.length - 1),
+      kind,
+    );
+  }
   if (kind === "graphite") {
-    // Deterministic transparent grain remains identical on peers and after save.
+    const segments = contours.map((contour) => ({
+      contour,
+      ...contourBounds(contour),
+    }));
+    const minX = Math.min(...segments.map((s) => s.minX)),
+      maxX = Math.max(...segments.map((s) => s.maxX));
+    const minY = Math.min(...segments.map((s) => s.minY)),
+      maxY = Math.max(...segments.map((s) => s.maxY));
+    const radius = Math.max(0.25, start.width * 0.045);
+    /** @type {XY[]} */ const grains = [];
     let seed = 17;
     const random = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 4294967296;
     };
-    const minX = Math.min(...outline.map((p) => p[0])),
-      maxX = Math.max(...outline.map((p) => p[0]));
-    const minY = Math.min(...outline.map((p) => p[1])),
-      maxY = Math.max(...outline.map((p) => p[1]));
-    const radius = Math.max(0.25, start.width * 0.045);
     for (let i = 0; i < 300; i++) {
       const x = minX + random() * (maxX - minX),
         y = minY + random() * (maxY - minY);
+      if (
+        grains.some(
+          (p) =>
+            Math.abs(x - p[0]) < radius * 2.05 &&
+            Math.abs(y - p[1]) < radius * 2.05,
+        )
+      )
+        continue;
+      const pad = radius + 0.03;
+      /** @type {XY[]} */ const probes = [
+        [x - pad, y - pad],
+        [x - pad, y + pad],
+        [x + pad, y + pad],
+        [x + pad, y - pad],
+      ];
+      let coverage = 0,
+        valid = true;
+      for (const segment of segments) {
+        if (
+          segment.maxX < x - pad ||
+          segment.minX > x + pad ||
+          segment.maxY < y - pad ||
+          segment.minY > y + pad
+        )
+          continue;
+        // Only cut grain where coverage is constant across the entire hole.
+        if (!probes.every((p) => inside(p[0], p[1], segment.contour))) {
+          valid = false;
+          break;
+        }
+        coverage++;
+      }
+      if (!valid || !coverage || vertices + coverage * 6 > vertexBudget)
+        continue;
+      // Cancel every covering segment, so grain stays transparent at crossings.
       /** @type {XY[]} */ const hole = [
         [x - radius, y - radius],
-        [x + radius, y - radius],
-        [x + radius, y + radius],
         [x - radius, y + radius],
+        [x + radius, y + radius],
+        [x + radius, y - radius],
       ];
-      if (hole.every((p) => inside(p[0], p[1], outline))) contours.push(hole);
+      for (let j = 0; j < coverage; j++) contours.push(hole);
+      vertices += coverage * 6;
+      grains.push([x, y]);
     }
   }
   return polygonFromContours(contours);

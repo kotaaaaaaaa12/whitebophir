@@ -1,9 +1,9 @@
 import { MutationType } from "../../js/mutation_type.js";
 import { TOOL_CODE_BY_ID } from "../manifest.js";
-import { PAINT_KINDS, polygonBounds } from "./geometry.js";
+import { PAINT_KINDS, paintFillRule, polygonBounds } from "./geometry.js";
 
 /** @import {ToolBootContext} from "../../../types/app-runtime" */
-/** @typedef {{tool:13,type:1,id:string,color:string,size:number,opacity:number,points:string,kind:string,x:number,y:number,x2:number,y2:number}} PaintCreateMessage */
+/** @typedef {{tool:13,type:1,id:string,color:string,size:number,opacity:number,points:string,kind:string,paintRule?:"nonzero"|"evenodd",x:number,y:number,x2:number,y2:number}} PaintCreateMessage */
 export const toolId = "paint";
 export const drawsOnBoard = true;
 export const contract = {
@@ -26,6 +26,9 @@ export const contract = {
           ...bounds,
           points,
           kind,
+          paintRule: paintFillRule(
+            helpers.readStoredSvgAttribute(entry, "fill-rule"),
+          ),
           size:
             helpers.parseNumber(
               helpers.readStoredSvgAttribute(entry, "data-wbo-size"),
@@ -47,7 +50,7 @@ export const contract = {
   serializeStoredSvgItem(item, helpers) {
     if (!polygonBounds(item.points) || !PAINT_KINDS.includes(String(item.kind)))
       return "";
-    return `<polygon id="${helpers.escapeHtml(item.id || "")}" points="${helpers.escapeHtml(String(item.points))}" data-wbo-paint="${helpers.escapeHtml(String(item.kind))}" data-wbo-size="${helpers.numberOrZero(item.size) || 10}" fill="${helpers.escapeHtml(item.color || "#000000")}" fill-rule="evenodd" stroke="none" opacity="${typeof item.opacity === "number" ? item.opacity : 1}"${helpers.renderTransformAttribute(item.transform)}></polygon>`;
+    return `<polygon id="${helpers.escapeHtml(item.id || "")}" points="${helpers.escapeHtml(String(item.points))}" data-wbo-paint="${helpers.escapeHtml(String(item.kind))}" data-wbo-size="${helpers.numberOrZero(item.size) || 10}" fill="${helpers.escapeHtml(item.color || "#000000")}" fill-rule="${paintFillRule(item.paintRule)}" stroke="none" opacity="${typeof item.opacity === "number" ? item.opacity : 1}"${helpers.renderTransformAttribute(item.transform)}></polygon>`;
   },
 };
 
@@ -67,7 +70,7 @@ export function draw(state, data) {
     "data-wbo-paint": data.kind,
     "data-wbo-size": data.size || 10,
     fill: data.color,
-    "fill-rule": "evenodd",
+    "fill-rule": paintFillRule(data.paintRule),
     stroke: "none",
     opacity: data.opacity ?? 1,
   }))

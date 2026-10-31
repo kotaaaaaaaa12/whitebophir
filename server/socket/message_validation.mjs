@@ -41,7 +41,7 @@ import { Cursor, TOOLS } from "../../client-data/tools/index.js";
 /** @typedef {{[key: string]: FieldSpec}} FieldSchema */
 /** @typedef {{[tool: number]: {[type: number]: FieldSchema}}} LiveToolSchemas */
 /** @typedef {import("../../client-data/tools/shape_contract.js").ToolContract} ToolContract */
-/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId" | "erasure" | "polygon" | "paintKind"} SchemaFieldType */
+/** @typedef {"id" | "coord" | "color" | "size" | "opacity" | "text" | "transform" | "time" | "toolId" | "erasure" | "polygon" | "paintKind" | "paintRule"} SchemaFieldType */
 
 const MAX_TOOL_CODE = TOOLS.length;
 const SHAPE_CONTRACTS = TOOLS.filter((tool) => tool.shapeTool === true);
@@ -297,6 +297,12 @@ function buildSchemaField(type, optionalField) {
         polygonBounds(value, maxBoardSize)
           ? accepted(value)
           : rejected("invalid polygon"),
+      );
+    case "paintRule":
+      return make((value) =>
+        value === "nonzero" || value === "evenodd"
+          ? accepted(value)
+          : rejected("invalid paint rule"),
       );
     case "paintKind":
       return make((value) =>

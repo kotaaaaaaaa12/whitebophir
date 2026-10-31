@@ -724,6 +724,7 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
         {tool:'eraser',type:3,id:'r1'},
         {tool:'paint',type:1,id:'f1',color:'#ff0000',size:10,opacity:1,kind:'bucket',points:'100,100 150,100 150,150 100,150',x:100,y:100,x2:150,y2:150},
         {tool:'eraser',type:2,id:'f1',erasure:{key:'wipeOne',x:120,y:120,x2:120,y2:120,size:10,transform:{a:1,b:0,c:0,d:1,e:0,f:0}}},
+        {tool:'paint',type:1,id:'v1',color:'#0000ff',size:10,opacity:0.4,kind:'marker',paintRule:'nonzero',points:'200,200 250,200 250,250 200,250 200,200 250,200 250,250 200,250',x:200,y:200,x2:250,y2:250},
       ];
       for(const m of edits) {
         const r = await s.acceptPersistentMutation(m);
@@ -774,6 +775,7 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
       );
       assert.match(svg, /id="r2"/);
       assert.match(svg, /id="f1"/);
+      assert.match(svg, /<polygon id="v1"[^>]*fill-rule="nonzero"/);
       assert.match(svg, /data-wbo-paint="bucket"/);
       assert.match(svg, /data-wbo-erasures=/);
       assert.match(svg, /wipeOne/);
@@ -781,7 +783,7 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
       assert.doesNotMatch(svg, /id="r1"/);
       assert.match(
         svg,
-        attempt === 0 ? /data-wbo-seq="9"/ : /data-wbo-seq="11"/,
+        attempt === 0 ? /data-wbo-seq="10"/ : /data-wbo-seq="12"/,
       );
       const page = await fetch(
         `http://127.0.0.1:${started.port}/boards/persist-test`,
@@ -792,8 +794,8 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
         attempt === 0 ? /Saved after a crash/ : /Saved through Socket.IO/,
       );
       if (attempt === 0) {
-        const first = connectSocket(started.port, 9);
-        const second = connectSocket(started.port, 9);
+        const first = connectSocket(started.port, 10);
+        const second = connectSocket(started.port, 10);
         await Promise.all([first.ready, second.ready]);
         const sent = await first.call("chat_send", {
           clientId: randomUUID(),
@@ -807,28 +809,28 @@ test("accepted edits survive an abrupt Node process exit and two empty-disk star
           parent: "l1",
           x: 30,
           y: 40,
-          clientMutationId: "cm-test-10",
+          clientMutationId: "cm-test-11",
         });
-        await Promise.all([first.seq(10), second.seq(10)]);
+        await Promise.all([first.seq(11), second.seq(11)]);
         first.send({
           tool: 5,
           type: 2,
           id: "t1",
           txt: "Saved through Socket.IO",
-          clientMutationId: "cm-test-11",
+          clientMutationId: "cm-test-12",
         });
-        await Promise.all([first.seq(11), second.seq(11)]);
+        await Promise.all([first.seq(12), second.seq(12)]);
         const persisted = await (
           await storage.dispatchFetch(
-            "http://wbo.storage/journal/persist-test?after=9",
+            "http://wbo.storage/journal/persist-test?after=10",
           )
         ).json();
-        assert.equal(persisted.at(-1).seq, 11);
+        assert.equal(persisted.at(-1).seq, 12);
         // Keep clients connected while killing the process, so unload does not
         // save the SVG. The next start must replay a journal over a snapshot.
       } else {
-        const first = connectSocket(started.port, 11);
-        const second = connectSocket(started.port, 11);
+        const first = connectSocket(started.port, 12);
+        const second = connectSocket(started.port, 12);
         await Promise.all([first.ready, second.ready]);
         const history = await first.call("chat_history", {});
         assert.equal(history.ok, true);

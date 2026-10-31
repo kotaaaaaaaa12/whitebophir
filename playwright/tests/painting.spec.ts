@@ -493,3 +493,114 @@ test("added colors scroll independently without pushing SIZE and Opacity down", 
     path: testInfo.outputPath("scrolling-color-palette.png"),
   });
 });
+
+for (const kind of ["graphite", "marker", "brush"])
+  test(`${kind} keeps same stroke overlaps painted before release, on peers and after reload`, async ({
+    boardPage,
+    page,
+    context,
+    server,
+  }) => {
+    const name = `overlap-${kind}`;
+    await boardPage.gotoBoard(name);
+    await scaleOne(page);
+    await boardPage.waitForBoardWritable();
+    const peer = await context.newPage();
+    await createBoardPage(peer, server).gotoBoard(name);
+    await boardPage.selectTool("pencil");
+    await page.locator(`[data-brush="${kind}"]`).click();
+    await expect(page.locator(`[data-brush="${kind}"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.evaluate(() => {
+      window.WBOApp.preferences.setSize(60);
+      window.WBOApp.preferences.setColor("#ff0000");
+    });
+    async function coverage(target: Page) {
+      return target.evaluate(async () => {
+        const original = document.getElementById(
+          "canvas",
+        ) as unknown as SVGSVGElement;
+        const svg = original.cloneNode(true) as SVGSVGElement;
+        svg.removeAttribute("style");
+        svg.setAttribute("viewBox", "0 0 400 500");
+        svg.setAttribute("width", "400");
+        svg.setAttribute("height", "500");
+        svg.querySelector("#cursors")?.remove();
+        const url = URL.createObjectURL(
+          new Blob([new XMLSerializer().serializeToString(svg)], {
+            type: "image/svg+xml",
+          }),
+        );
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 500;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Missing raster context");
+        ctx.drawImage(image, 0, 0);
+        URL.revokeObjectURL(url);
+        return [
+          [220, 400],
+          [220, 320],
+        ].map(([x, y]) => {
+          const pixels = ctx.getImageData(
+            (x ?? 0) - 4,
+            (y ?? 0) - 4,
+            9,
+            9,
+          ).data;
+          let painted = 0;
+          for (let i = 3; i < pixels.length; i += 4)
+            if ((pixels[i] ?? 0) > 20) painted++;
+          return painted / 81;
+        });
+      });
+    }
+    const start = await point(page, 140, 400);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (const [x, y] of [
+      [300, 400],
+      [140, 400],
+      [300, 240],
+      [140, 240],
+      [300, 400],
+    ]) {
+      const next = await point(page, x ?? 0, y ?? 0);
+      await page.mouse.move(next.x, next.y, { steps: 16 });
+    }
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    for (const c of await coverage(page)) expect(c).toBeGreaterThan(0.3);
+    await page.mouse.up();
+    const painted = page.locator(
+      `#drawingArea polygon[data-wbo-paint="${kind}"]`,
+    );
+    await expect(painted).toHaveCount(1);
+    await expect(painted).toHaveAttribute("fill-rule", "nonzero");
+    const id = await painted.getAttribute("id");
+    if (!id) throw new Error("No committed stroke");
+    await expect(peer.locator(`#${id}`)).toHaveAttribute(
+      "fill-rule",
+      "nonzero",
+    );
+    for (const c of await coverage(page)) expect(c).toBeGreaterThan(0.3);
+    for (const c of await coverage(peer)) expect(c).toBeGreaterThan(0.3);
+    await server.waitForStoredBoard(
+      server.dataPath,
+      name,
+      (board) => board[id]?.paintRule === "nonzero",
+    );
+    await page.reload();
+    await page.waitForFunction(
+      () => document.documentElement.dataset.boardPhase === "ready",
+    );
+    await boardPage.waitForBoardWritable();
+    for (const c of await coverage(page)) expect(c).toBeGreaterThan(0.3);
+  });

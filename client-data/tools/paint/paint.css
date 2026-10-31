@@ -1,5 +1,4 @@
-/* Filled paint objects use their own even-odd geometry, including transparent holes. */
+/* Each paint object owns its fill rule, including legacy and bucket holes. */
 polygon[data-wbo-paint] {
   stroke: none;
-  fill-rule: evenodd;
 }

@@ -1,4 +1,8 @@
-import { polygonBounds, strokePolygon } from "./geometry.js";
+import {
+  MAX_STROKE_SAMPLES,
+  polygonBounds,
+  strokePolygon,
+} from "./geometry.js";
 import { TOOL_CODE_BY_ID } from "../manifest.js";
 import { MutationType } from "../../js/mutation_type.js";
 
@@ -14,7 +18,7 @@ export function createStroke(runtime, kind) {
       (kind === "marker" ? 0.4 : kind === "graphite" ? 0.8 : 1),
   );
   element.setAttribute("fill", color);
-  element.setAttribute("fill-rule", "evenodd");
+  element.setAttribute("fill-rule", "nonzero");
   element.setAttribute("stroke", "none");
   element.setAttribute("opacity", String(opacity));
   element.style.pointerEvents = "none";
@@ -58,7 +62,7 @@ export function move(stroke, x, y, evt) {
   }
   stroke.lastTime = now;
   stroke.samples.push({ x, y, width: stroke.size * factor });
-  if (stroke.samples.length > 1200) {
+  if (stroke.samples.length > MAX_STROKE_SAMPLES) {
     // Retain the latest endpoint while bounding memory and SVG complexity.
     stroke.samples = stroke.samples.filter(
       (_, i) => i % 2 === 0 || i === stroke.samples.length - 1,
@@ -94,6 +98,7 @@ export function finish(stroke, x, y) {
       id: stroke.runtime.ids.generateUID("v"),
       points,
       kind: stroke.kind,
+      paintRule: "nonzero",
       ...bounds,
       color: stroke.color,
       size: stroke.size,

@@ -333,6 +333,7 @@ export const TOOL_MANIFEST = Object.freeze([
         opacity: "opacity?",
         points: "polygon",
         kind: "paintKind",
+        paintRule: "paintRule?",
         x: "coord",
         y: "coord",
         x2: "coord",
